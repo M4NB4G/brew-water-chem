@@ -82,9 +82,14 @@ export default function RecipeTab({
   // chosen raiseAlkSource, regardless of whether the solver recommends any.
   const alkRaiseSaltKey = raiseAlkSource; // 'baking_soda' | 'pickling_lime'
 
-  const displayedSalts = Object.keys({ ...recommendedSalts, ...effectiveSalts }).filter(
-    (k) => k !== alkRaiseSaltKey
-  );
+  // Show all salts: solver-recommended first (natural order), then any remaining
+  // salts from the full catalogue not yet listed. The raise-alk salt always
+  // gets its own dedicated card below, so exclude it here.
+  const displayedSalts = [
+    ...Object.keys({ ...recommendedSalts, ...effectiveSalts }),
+    ...Object.keys(SALT_CONTRIBUTIONS_PER_G_GAL),
+  ]
+    .filter((k, i, arr) => k !== alkRaiseSaltKey && arr.indexOf(k) === i);
 
   // Predicted final ions, recomputed live as overrides change
   const finalIons = useMemo(() => {
