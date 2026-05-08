@@ -1,0 +1,118 @@
+[
+{
+    "_metadata": {
+      "calibrated_against": "Bru'n Water 1.25 free, Martin Brungard, 2020",
+      "calibration_date": "2026-05-06",
+      "tolerance": "±5 ppm OR ±5%, whichever is greater",
+      "known_systematic_differences": [
+        "CaCl2: app uses dihydrate (Palmer 2013), Bru'n uses anhydrous. ~33% Cl difference on CaCl2-only batches. Deliberate choice.",
+        "Baking soda Alk: 9 ppm low vs Bru'n in Batch 2. Open investigation item — possibly Bru'n's CO2 outgassing model."
+      ]
+    }
+  },
+{
+  "name": "Batch 1 — Chemistry parity, Bristlecone water + typical pale ale salt mix",
+  "notes": "Hand-picked salt amounts via Bru'n's calculator. Tests chemistry engine ion contribution constants for Ca, SO4, Mg, Cl, plus 88% lactic acid math. NOTE: CaCl2 constants use dihydrate (CaCl2*2H2O, MW 147.01) per Palmer & Kaminski (2013) p. 282 — homebrewing convention. Bru'n Water uses anhydrous CaCl2, so Cl values disagree by ~33% on CaCl2-only batches. This is a deliberate choice, not a bug. Bru'n input HCO3 = source.Alkalinity × 1.22 = 61 ppm. Bru'n output HCO3 converted back to Alk-as-CaCO3 (× 0.82) for brun_predicted_final_ions.Alk.",
+  "source": {
+    "Ca": 8,
+    "Mg": 2.4,
+    "Na": 22,
+    "SO4": 0,
+    "Cl": 20,
+    "Alkalinity": 50
+  },
+  "brun_target_profile_referenced": "Pale Ale Profile",
+  "test_type": "chemistry_parity",
+  "volume_gallons": 5.0,
+  "applied_additions_g": {
+    "gypsum": 7.5,
+    "calcium_chloride": 1.0,
+    "epsom": 2.5,
+    "table_salt": 0.0,
+    "baking_soda": 0.0,
+    "chalk": 0.0,
+    "pickling_lime": 0.0,
+    "magnesium_chloride": 0.0
+  },
+  "applied_acid_type": "lactic_88",
+  "applied_acid_ml": 0.5,
+  "brun_predicted_final_ions": {
+    "Ca": 119,
+    "Mg": 15,
+    "Na": 22,
+    "SO4": 273,
+    "Cl": 54,
+    "Alk": 35
+  }
+},
+{
+  "name": "Batch 2 — Chemistry parity, Bristlecone + alkalinity-raising salts",
+  "notes": "Hand-picked salt amounts via Bru'n's calculator. Tests chemistry engine ion contribution constants for baking soda (NaHCO3 → Na + HCO3 → Alk-as-CaCO3). This validates the alkalinity-raising path that Batch 1 doesn't exercise. Bru'n input HCO3 = source.Alkalinity × 1.22 = 61 ppm. Bru'n output HCO3 converted back to Alk-as-CaCO3 (× 0.82) for brun_predicted_final_ions.Alk.",
+  "source": {
+    "Ca": 8,
+    "Mg": 2.4,
+    "Na": 22,
+    "SO4": 0,
+    "Cl": 20,
+    "Alkalinity": 50
+  },
+  "brun_target_profile_referenced": "Brown Balanced",
+  "test_type": "chemistry_parity",
+  "volume_gallons": 5.0,
+  "applied_additions_g": {
+    "gypsum": 1.4,
+    "calcium_chloride": 0.8,
+    "epsom": 1.5,
+    "table_salt": 0.0,
+    "baking_soda": 1.0,
+    "chalk": 0.0,
+    "pickling_lime": 0.0,
+    "magnesium_chloride": 0.0
+  },
+  "applied_acid_type": "lactic_88",
+  "applied_acid_ml": 0.0,
+  "brun_predicted_final_ions": {
+    "Ca": 39,
+    "Mg": 10,
+    "Na": 36,
+    "SO4": 71,
+    "Cl": 45,
+    "Alk": 72
+  }
+},
+{
+  "name": "Batch 3 — Chemistry parity, NaCl + MgCl2 + gypsum",
+  "notes": "Hand-picked salt amounts via Bru'n's calculator. Tests Na from NaCl (vs from baking soda in Batch 2), Mg from MgCl2 (vs from epsom in Batch 1), and Cl from non-CaCl2 sources. Bru'n input HCO3 = source.Alkalinity × 1.22 = 61 ppm.",
+  "source": {
+    "Ca": 8,
+    "Mg": 2.4,
+    "Na": 22,
+    "SO4": 0,
+    "Cl": 20,
+    "Alkalinity": 50
+  },
+  "brun_target_profile_referenced": "User Custom or any — target not used for chemistry parity",
+  "test_type": "chemistry_parity",
+  "volume_gallons": 5.0,
+  "applied_additions_g": {
+    "gypsum": 1.0,
+    "calcium_chloride": 0.0,
+    "epsom": 0.0,
+    "table_salt": 2.0,
+    "baking_soda": 0.0,
+    "chalk": 0.0,
+    "pickling_lime": 0.0,
+    "magnesium_chloride": 1.0
+  },
+  "applied_acid_type": "lactic_88",
+  "applied_acid_ml": 0.0,
+  "brun_predicted_final_ions": {
+    "Ca": 20,
+    "Mg": 9,
+    "Na": 64,
+    "SO4": 29,
+    "Cl": 103,
+    "Alk": 50
+  }
+}
+]

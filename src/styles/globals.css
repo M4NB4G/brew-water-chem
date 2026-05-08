@@ -1,0 +1,39 @@
+/* Global reset and base styles.
+   Design tokens live in src/components/shared/styles.js as JS objects
+   for use in inline styles; this file handles document-level defaults. */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  font-family: 'Source Sans 3', system-ui, -apple-system, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  color: #1f3147;
+  background: linear-gradient(180deg, #f5f7fa 0%, #eaf0f6 100%);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+input,
+select,
+textarea,
+button {
+  font-family: inherit;
+}
+
+button {
+  cursor: pointer;
+}
