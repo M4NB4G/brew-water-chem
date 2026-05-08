@@ -9,7 +9,7 @@
 //   - Small grey hint text under each editable field shows the recommended value.
 //   - "Reset to recommended" button is visible only when ≥1 field is customized.
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import Card from '../shared/Card.jsx';
 import StatBox from '../shared/StatBox.jsx';
 import InputRow from '../shared/InputRow.jsx';
@@ -19,6 +19,33 @@ import { SALT_CONTRIBUTIONS_PER_G_GAL } from '../../chemistry/salts.js';
 import { solveAdditions, predictFinalProfile } from '../../chemistry/solver.js';
 import { residualAlkalinity, sulfateChlorideRatio } from '../../chemistry/ra.js';
 import { volumeUnit, acidMaltUnits } from '../../chemistry/units.js';
+
+// Uncontrolled-style number input that holds a local string draft while the
+// user is typing. Commits the parsed value to the parent on blur, and
+// normalizes the display. Using key={...} from the parent resets it when
+// the recommendation changes or overrides are cleared.
+function DraftInput({ initialValue, format, parse, onChange, style }) {
+  const [draft, setDraft] = useState(() => format(initialValue));
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      value={draft}
+      onChange={(e) => {
+        setDraft(e.target.value);
+        const v = parse(e.target.value);
+        if (v !== null) onChange(v);
+      }}
+      onFocus={(e) => e.target.select()}
+      onBlur={() => {
+        const v = parse(draft) ?? 0;
+        setDraft(format(v));
+        onChange(v);
+      }}
+      style={style}
+    />
+  );
+}
 
 const FINAL_PROFILE_ROWS = [
   ['Ca', 'Calcium'],
@@ -39,11 +66,13 @@ export default function RecipeTab({
   acidKey,
   raiseAlkSource,
   overrides,
+  enabledSalts,
   onChangeVolume,
   onChangeAcid,
   onChangeRaiseAlk,
   onSetOverride,
   onResetOverrides,
+  onToggleSalt,
 }) {
   const acid = ACIDS[acidKey];
   const acidIsSolid = !!acid.is_solid;
@@ -52,8 +81,8 @@ export default function RecipeTab({
   // Solver recommendation
   const recommendation = useMemo(() => {
     if (!volumeGallons || volumeGallons <= 0) return null;
-    return solveAdditions({ source, target, volumeGallons, acidKey, raiseAlkSource });
-  }, [source, target, volumeGallons, acidKey, raiseAlkSource]);
+    return solveAdditions({ source, target, volumeGallons, acidKey, raiseAlkSource, enabledSalts });
+  }, [source, target, volumeGallons, acidKey, raiseAlkSource, enabledSalts]);
 
   const recommendedSalts = useMemo(() => {
     const out = {};
@@ -89,7 +118,7 @@ export default function RecipeTab({
     ...Object.keys({ ...recommendedSalts, ...effectiveSalts }),
     ...Object.keys(SALT_CONTRIBUTIONS_PER_G_GAL),
   ]
-    .filter((k, i, arr) => k !== alkRaiseSaltKey && arr.indexOf(k) === i);
+    .filter((k, i, arr) => k !== alkRaiseSaltKey && arr.indexOf(k) === i && enabledSalts.has(k));
 
   // Predicted final ions, recomputed live as overrides change
   const finalIons = useMemo(() => {
@@ -156,6 +185,29 @@ export default function RecipeTab({
         </div>
       </Card>
 
+      <Card>
+        <div style={tokens.cardLabel}>Available Salts</div>
+        <div style={{ fontSize: '0.8rem', color: colors.textMuted, marginBottom: '0.6rem' }}>
+          Check the salts you have on hand. The solver will only use enabled salts.
+        </div>
+        <div style={saltGridStyle}>
+          {Object.entries(SALT_CONTRIBUTIONS_PER_G_GAL).map(([key, meta]) => {
+            const checked = enabledSalts.has(key);
+            return (
+              <label key={key} style={saltCheckStyle}>
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() => onToggleSalt(key)}
+                  style={{ marginRight: '0.4rem', accentColor: colors.accent }}
+                />
+                {meta.name}
+              </label>
+            );
+          })}
+        </div>
+      </Card>
+
       {recommendation && (
         <>
           <Card>
@@ -212,15 +264,12 @@ export default function RecipeTab({
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', justifyContent: 'flex-end' }}>
-                      <input
-                        type="number"
-                        step={0.01}
-                        min={0}
-                        value={formatGrams(effG)}
-                        onChange={(e) => {
-                          const v = parseFloat(e.target.value);
-                          onSetOverride(saltKey, isNaN(v) || v < 0 ? 0 : v);
-                        }}
+                      <DraftInput
+                        key={isOverridden ? `${saltKey}-override` : `${saltKey}-${recG.toFixed(4)}`}
+                        initialValue={effG}
+                        format={formatGrams}
+                        parse={(s) => { const v = parseFloat(s); return isNaN(v) || v < 0 ? null : v; }}
+                        onChange={(v) => onSetOverride(saltKey, v)}
                         style={{
                           ...tokens.numberInput,
                           width: '80px',
@@ -250,12 +299,12 @@ export default function RecipeTab({
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', justifyContent: 'flex-end' }}>
-                    <input
-                      type="number"
-                      step={0.01}
-                      min={0}
-                      value={formatAcidDose(effectiveAcidDose)}
-                      onChange={(e) => onSetOverride('_acidDose', parseAcidDoseInput(e.target.value))}
+                    <DraftInput
+                      key={overrides._acidDose !== undefined ? 'acid-override' : `acid-${recommendedAcidDose.toFixed(4)}`}
+                      initialValue={effectiveAcidDose}
+                      format={formatAcidDose}
+                      parse={(s) => { const v = parseAcidDoseInput(s); return v < 0 ? null : v; }}
+                      onChange={(v) => onSetOverride('_acidDose', v)}
                       style={{
                         ...tokens.numberInput,
                         width: '90px',
@@ -300,15 +349,12 @@ export default function RecipeTab({
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', justifyContent: 'flex-end' }}>
-                      <input
-                        type="number"
-                        step={0.01}
-                        min={0}
-                        value={formatGrams(effG)}
-                        onChange={(e) => {
-                          const v = parseFloat(e.target.value);
-                          onSetOverride(alkRaiseSaltKey, isNaN(v) || v < 0 ? 0 : v);
-                        }}
+                      <DraftInput
+                        key={isOverridden ? `${alkRaiseSaltKey}-override` : `${alkRaiseSaltKey}-${recG.toFixed(4)}`}
+                        initialValue={effG}
+                        format={formatGrams}
+                        parse={(s) => { const v = parseFloat(s); return isNaN(v) || v < 0 ? null : v; }}
+                        onChange={(v) => onSetOverride(alkRaiseSaltKey, v)}
                         style={{
                           ...tokens.numberInput,
                           width: '80px',
@@ -405,6 +451,20 @@ const hintStyle = {
 const unitLabelStyle = {
   fontSize: '0.78rem',
   color: colors.textMuted,
+};
+
+const saltGridStyle = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+  gap: '0.5rem 1rem',
+};
+
+const saltCheckStyle = {
+  display: 'flex',
+  alignItems: 'center',
+  fontSize: '0.82rem',
+  color: colors.textPrimary,
+  cursor: 'pointer',
 };
 
 const resetButtonStyle = {

@@ -6,8 +6,8 @@
 //
 // Order of operations:
 //   1. CaCl2 to hit Cl deficit (also adds Ca)
-//   2. Gypsum to hit SO4 deficit (also adds Ca)
-//   3. Epsom for Mg deficit (adds SO4 — switch to MgCl2 if SO4 would overshoot)
+//   2. Epsom for Mg deficit (adds SO4 — switch to MgCl2 if SO4 would overshoot)
+//   3. Gypsum to hit remaining SO4 deficit (capped so Ca doesn't exceed target)
 //   4. Alkalinity: now that exact Ca and Mg are known, compute the Alk needed
 //      to achieve target.RA (alkForTargetRA = RA + Ca/1.4 + Mg/1.7), then:
 //        - source > alkForTargetRA: dose acid
@@ -33,6 +33,8 @@ import { LITERS_PER_GALLON } from './units.js';
  * @param {number} params.volumeGallons  batch volume in US gallons
  * @param {string} params.acidKey        key into ACIDS
  * @param {string} params.raiseAlkSource 'baking_soda' | 'pickling_lime'
+ * @param {Set<string>} [params.enabledSalts]  salt keys the solver may use;
+ *                                              defaults to all salts enabled
  *
  * @returns {{
  *   additions: Array<{ salt, name, grams, adds, reason }>,
@@ -40,7 +42,8 @@ import { LITERS_PER_GALLON } from './units.js';
  *   finalIons: { Ca, Mg, Na, SO4, Cl, Alk }
  * }}
  */
-export function solveAdditions({ source, target, volumeGallons, acidKey, raiseAlkSource }) {
+export function solveAdditions({ source, target, volumeGallons, acidKey, raiseAlkSource, enabledSalts }) {
+  const canUse = (key) => !enabledSalts || enabledSalts.has(key);
   // Na safety cap: baking soda adds Na as a side-effect of raising alkalinity.
   // Cap total Na at the lower of 100 ppm or 3× the style target.
   const NA_CAP = Math.min(100, 3 * target.Na);
@@ -55,7 +58,7 @@ export function solveAdditions({ source, target, volumeGallons, acidKey, raiseAl
     Math.max(0, deltaPpm / contribPerGGal) * volumeGallons;
 
   // ---------- STEP 1: CaCl2 for chloride deficit ----------
-  if (target.Cl - current.Cl > 5 && target.Ca - current.Ca > 0) {
+  if (canUse('calcium_chloride') && target.Cl - current.Cl > 5 && target.Ca - current.Ca > 0) {
     const grams = gFor(target.Cl - current.Cl, SALT_CONTRIBUTIONS_PER_G_GAL.calcium_chloride.Cl);
     const factor = grams / volumeGallons;
     additions.push({
@@ -69,39 +72,42 @@ export function solveAdditions({ source, target, volumeGallons, acidKey, raiseAl
     current.Cl += SALT_CONTRIBUTIONS_PER_G_GAL.calcium_chloride.Cl * factor;
   }
 
-  // ---------- STEP 2: Gypsum for sulfate ----------
-  if (target.SO4 - current.SO4 > 5) {
-    const grams = gFor(target.SO4 - current.SO4, SALT_CONTRIBUTIONS_PER_G_GAL.gypsum.SO4);
-    const factor = grams / volumeGallons;
-    additions.push({
-      salt: 'gypsum',
-      name: SALT_CONTRIBUTIONS_PER_G_GAL.gypsum.name,
-      grams,
-      adds: { Ca: SALT_CONTRIBUTIONS_PER_G_GAL.gypsum.Ca, SO4: SALT_CONTRIBUTIONS_PER_G_GAL.gypsum.SO4 },
-      reason: 'Hit SO₄²⁻ target; provides Ca²⁺',
-    });
-    current.Ca  += SALT_CONTRIBUTIONS_PER_G_GAL.gypsum.Ca  * factor;
-    current.SO4 += SALT_CONTRIBUTIONS_PER_G_GAL.gypsum.SO4 * factor;
-  }
-
-  // ---------- STEP 3: Epsom (or MgCl2) for Mg deficit ----------
+  // ---------- STEP 2: Epsom (or MgCl2) for Mg deficit ----------
+  // Runs before gypsum so its SO4 contribution is known before gypsum is sized.
   if (target.Mg - current.Mg > 2) {
     const defMg = target.Mg - current.Mg;
-    const epsomGrams = gFor(defMg, SALT_CONTRIBUTIONS_PER_G_GAL.epsom.Mg);
-    const epsomFactor = epsomGrams / volumeGallons;
-    const so4Added = SALT_CONTRIBUTIONS_PER_G_GAL.epsom.SO4 * epsomFactor;
+    const epsomOk = canUse('epsom');
+    const mgcl2Ok = canUse('magnesium_chloride');
 
-    if (current.SO4 + so4Added <= target.SO4 * 1.20) {
-      additions.push({
-        salt: 'epsom',
-        name: SALT_CONTRIBUTIONS_PER_G_GAL.epsom.name,
-        grams: epsomGrams,
-        adds: { Mg: SALT_CONTRIBUTIONS_PER_G_GAL.epsom.Mg, SO4: SALT_CONTRIBUTIONS_PER_G_GAL.epsom.SO4 },
-        reason: 'Hit Mg²⁺ target',
-      });
-      current.Mg  += SALT_CONTRIBUTIONS_PER_G_GAL.epsom.Mg  * epsomFactor;
-      current.SO4 += so4Added;
-    } else {
+    if (epsomOk) {
+      const epsomGrams = gFor(defMg, SALT_CONTRIBUTIONS_PER_G_GAL.epsom.Mg);
+      const epsomFactor = epsomGrams / volumeGallons;
+      const so4Added = SALT_CONTRIBUTIONS_PER_G_GAL.epsom.SO4 * epsomFactor;
+
+      if (current.SO4 + so4Added <= target.SO4 * 1.20 || !mgcl2Ok) {
+        additions.push({
+          salt: 'epsom',
+          name: SALT_CONTRIBUTIONS_PER_G_GAL.epsom.name,
+          grams: epsomGrams,
+          adds: { Mg: SALT_CONTRIBUTIONS_PER_G_GAL.epsom.Mg, SO4: SALT_CONTRIBUTIONS_PER_G_GAL.epsom.SO4 },
+          reason: 'Hit Mg²⁺ target',
+        });
+        current.Mg  += SALT_CONTRIBUTIONS_PER_G_GAL.epsom.Mg  * epsomFactor;
+        current.SO4 += so4Added;
+      } else if (mgcl2Ok) {
+        const mgcl2Grams  = gFor(defMg, SALT_CONTRIBUTIONS_PER_G_GAL.magnesium_chloride.Mg);
+        const mgcl2Factor = mgcl2Grams / volumeGallons;
+        additions.push({
+          salt: 'magnesium_chloride',
+          name: SALT_CONTRIBUTIONS_PER_G_GAL.magnesium_chloride.name,
+          grams: mgcl2Grams,
+          adds: { Mg: SALT_CONTRIBUTIONS_PER_G_GAL.magnesium_chloride.Mg, Cl: SALT_CONTRIBUTIONS_PER_G_GAL.magnesium_chloride.Cl },
+          reason: 'Hit Mg²⁺ target without overshooting SO₄²⁻',
+        });
+        current.Mg += SALT_CONTRIBUTIONS_PER_G_GAL.magnesium_chloride.Mg * mgcl2Factor;
+        current.Cl += SALT_CONTRIBUTIONS_PER_G_GAL.magnesium_chloride.Cl * mgcl2Factor;
+      }
+    } else if (mgcl2Ok) {
       const mgcl2Grams  = gFor(defMg, SALT_CONTRIBUTIONS_PER_G_GAL.magnesium_chloride.Mg);
       const mgcl2Factor = mgcl2Grams / volumeGallons;
       additions.push({
@@ -109,10 +115,35 @@ export function solveAdditions({ source, target, volumeGallons, acidKey, raiseAl
         name: SALT_CONTRIBUTIONS_PER_G_GAL.magnesium_chloride.name,
         grams: mgcl2Grams,
         adds: { Mg: SALT_CONTRIBUTIONS_PER_G_GAL.magnesium_chloride.Mg, Cl: SALT_CONTRIBUTIONS_PER_G_GAL.magnesium_chloride.Cl },
-        reason: 'Hit Mg²⁺ target without overshooting SO₄²⁻',
+        reason: 'Hit Mg²⁺ target',
       });
       current.Mg += SALT_CONTRIBUTIONS_PER_G_GAL.magnesium_chloride.Mg * mgcl2Factor;
       current.Cl += SALT_CONTRIBUTIONS_PER_G_GAL.magnesium_chloride.Cl * mgcl2Factor;
+    }
+  }
+
+  // ---------- STEP 3: Gypsum for remaining SO4 deficit ----------
+  // Capped so the resulting Ca doesn't exceed the style target — gypsum adds
+  // significant Ca as a side-effect, and overshooting Ca is a harder problem
+  // to correct than undershooting SO4 (the user can add less manually).
+  if (canUse('gypsum') && target.SO4 - current.SO4 > 5) {
+    const gramsBySO4 = gFor(target.SO4 - current.SO4, SALT_CONTRIBUTIONS_PER_G_GAL.gypsum.SO4);
+    const caHeadroom = Math.max(0, target.Ca - current.Ca);
+    const maxGramsByCa = (caHeadroom / SALT_CONTRIBUTIONS_PER_G_GAL.gypsum.Ca) * volumeGallons;
+    const grams = Math.min(gramsBySO4, maxGramsByCa);
+    if (grams > 0) {
+      const factor = grams / volumeGallons;
+      additions.push({
+        salt: 'gypsum',
+        name: SALT_CONTRIBUTIONS_PER_G_GAL.gypsum.name,
+        grams,
+        adds: { Ca: SALT_CONTRIBUTIONS_PER_G_GAL.gypsum.Ca, SO4: SALT_CONTRIBUTIONS_PER_G_GAL.gypsum.SO4 },
+        reason: gramsBySO4 > maxGramsByCa
+          ? 'Top up SO₄²⁻ (Ca-capped — full SO₄ target would overshoot Ca)'
+          : 'Hit SO₄²⁻ target; provides Ca²⁺',
+      });
+      current.Ca  += SALT_CONTRIBUTIONS_PER_G_GAL.gypsum.Ca  * factor;
+      current.SO4 += SALT_CONTRIBUTIONS_PER_G_GAL.gypsum.SO4 * factor;
     }
   }
 
@@ -136,7 +167,7 @@ export function solveAdditions({ source, target, volumeGallons, acidKey, raiseAl
     }
     current.Alk = alkForTargetRA;
 
-  } else if (alkDelta > 5) {
+  } else if (alkDelta > 5 && canUse(raiseAlkSource)) {
     if (raiseAlkSource === 'pickling_lime') {
       const grams = gFor(alkDelta, SALT_CONTRIBUTIONS_PER_G_GAL.pickling_lime.alk_as_CaCO3);
       additions.push({
@@ -179,7 +210,7 @@ export function solveAdditions({ source, target, volumeGallons, acidKey, raiseAl
   }
 
   // ---------- STEP 5: top up Cl with NaCl if Na also short ----------
-  if (target.Cl - current.Cl > 5 && target.Na - current.Na > 5) {
+  if (canUse('table_salt') && target.Cl - current.Cl > 5 && target.Na - current.Na > 5) {
     const grams = gFor(target.Cl - current.Cl, SALT_CONTRIBUTIONS_PER_G_GAL.table_salt.Cl);
     const factor = grams / volumeGallons;
     additions.push({
@@ -194,7 +225,7 @@ export function solveAdditions({ source, target, volumeGallons, acidKey, raiseAl
   }
 
   // ---------- STEP 6: top up Na with NaCl ----------
-  if (target.Na - current.Na > 5) {
+  if (canUse('table_salt') && target.Na - current.Na > 5) {
     const grams = gFor(target.Na - current.Na, SALT_CONTRIBUTIONS_PER_G_GAL.table_salt.Na);
     const factor = grams / volumeGallons;
     additions.push({

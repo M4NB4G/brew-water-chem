@@ -11,6 +11,7 @@ import NotesTab from './components/tabs/NotesTab.jsx';
 import { findStyle } from './data/styles.js';
 import { volumeToGallons } from './chemistry/units.js';
 import { colors } from './components/shared/styles.js';
+import { SALT_CONTRIBUTIONS_PER_G_GAL } from './chemistry/salts.js';
 
 const DEFAULT_SOURCE = {
   Ca: 30,
@@ -40,6 +41,19 @@ export default function App() {
   const [raiseAlkSource, setRaiseAlkSource] = useState('baking_soda');
   // Recipe overrides — { [saltKey]: grams, _acidDose: number }
   const [overrides, setOverrides] = useState({});
+  // Which salts the solver is allowed to use (user has them on hand)
+  const [enabledSalts, setEnabledSalts] = useState(
+    () => new Set(Object.keys(SALT_CONTRIBUTIONS_PER_G_GAL))
+  );
+
+  function handleToggleSalt(key) {
+    setEnabledSalts((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+    setOverrides({});
+  }
 
   const style = findStyle(styleId);
   const target = useMemo(() => ({ ...style.profile }), [style]);
@@ -136,6 +150,7 @@ export default function App() {
             acidKey={acidKey}
             raiseAlkSource={raiseAlkSource}
             overrides={overrides}
+            enabledSalts={enabledSalts}
             onChangeVolume={handleVolumeChange}
             onChangeAcid={handleAcidChange}
             onChangeRaiseAlk={handleRaiseAlkChange}
@@ -143,6 +158,7 @@ export default function App() {
               setOverrides((o) => ({ ...o, [key]: value }))
             }
             onResetOverrides={() => setOverrides({})}
+            onToggleSalt={handleToggleSalt}
           />
         )}
         {tab === 'notes' && <NotesTab />}
