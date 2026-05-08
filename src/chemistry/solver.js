@@ -13,8 +13,8 @@
 //        - source > alkForTargetRA: dose acid
 //        - source < alkForTargetRA: add baking soda or pickling lime
 //      Baking soda is capped so total Na stays ≤ min(100, 3 × target.Na).
-//   5. Top up Cl with NaCl if Na also deficient
-//   6. Top up Na with NaCl
+//   5. Top up remaining Cl with NaCl (Na is never actively targeted — only
+//      checked to ensure additions stay below the Na safety cap)
 //
 // References:
 //   Palmer-Kaminski (2013) Ch. 5, pp. 119–162
@@ -209,34 +209,28 @@ export function solveAdditions({ source, target, volumeGallons, acidKey, raiseAl
     }
   }
 
-  // ---------- STEP 5: top up Cl with NaCl if Na also short ----------
-  if (canUse('table_salt') && target.Cl - current.Cl > 5 && target.Na - current.Na > 5) {
-    const grams = gFor(target.Cl - current.Cl, SALT_CONTRIBUTIONS_PER_G_GAL.table_salt.Cl);
-    const factor = grams / volumeGallons;
-    additions.push({
-      salt: 'table_salt',
-      name: SALT_CONTRIBUTIONS_PER_G_GAL.table_salt.name,
-      grams,
-      adds: { Na: SALT_CONTRIBUTIONS_PER_G_GAL.table_salt.Na, Cl: SALT_CONTRIBUTIONS_PER_G_GAL.table_salt.Cl },
-      reason: 'Hit Cl⁻ target; provides Na⁺',
-    });
-    current.Na += SALT_CONTRIBUTIONS_PER_G_GAL.table_salt.Na * factor;
-    current.Cl += SALT_CONTRIBUTIONS_PER_G_GAL.table_salt.Cl * factor;
-  }
-
-  // ---------- STEP 6: top up Na with NaCl ----------
-  if (canUse('table_salt') && target.Na - current.Na > 5) {
-    const grams = gFor(target.Na - current.Na, SALT_CONTRIBUTIONS_PER_G_GAL.table_salt.Na);
-    const factor = grams / volumeGallons;
-    additions.push({
-      salt: 'table_salt',
-      name: SALT_CONTRIBUTIONS_PER_G_GAL.table_salt.name,
-      grams,
-      adds: { Na: SALT_CONTRIBUTIONS_PER_G_GAL.table_salt.Na, Cl: SALT_CONTRIBUTIONS_PER_G_GAL.table_salt.Cl },
-      reason: 'Hit Na⁺ target',
-    });
-    current.Na += SALT_CONTRIBUTIONS_PER_G_GAL.table_salt.Na * factor;
-    current.Cl += SALT_CONTRIBUTIONS_PER_G_GAL.table_salt.Cl * factor;
+  // ---------- STEP 5: top up remaining Cl with NaCl ----------
+  // Na is never actively targeted — the solver only checks that NaCl additions
+  // don't push Na above the safety cap (same cap used for baking soda).
+  if (canUse('table_salt') && target.Cl - current.Cl > 5) {
+    const gramsByCl = gFor(target.Cl - current.Cl, SALT_CONTRIBUTIONS_PER_G_GAL.table_salt.Cl);
+    const naHeadroom = Math.max(0, NA_CAP - current.Na);
+    const maxGramsByNa = (naHeadroom / SALT_CONTRIBUTIONS_PER_G_GAL.table_salt.Na) * volumeGallons;
+    const grams = Math.min(gramsByCl, maxGramsByNa);
+    if (grams > 0) {
+      const factor = grams / volumeGallons;
+      additions.push({
+        salt: 'table_salt',
+        name: SALT_CONTRIBUTIONS_PER_G_GAL.table_salt.name,
+        grams,
+        adds: { Na: SALT_CONTRIBUTIONS_PER_G_GAL.table_salt.Na, Cl: SALT_CONTRIBUTIONS_PER_G_GAL.table_salt.Cl },
+        reason: gramsByCl > maxGramsByNa
+          ? `Hit Cl⁻ target (Na-capped at ${NA_CAP} ppm)`
+          : 'Hit Cl⁻ target',
+      });
+      current.Na += SALT_CONTRIBUTIONS_PER_G_GAL.table_salt.Na * factor;
+      current.Cl += SALT_CONTRIBUTIONS_PER_G_GAL.table_salt.Cl * factor;
+    }
   }
 
   return { additions, acidDose, finalIons: current };
