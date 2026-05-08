@@ -135,7 +135,7 @@ export default function RecipeTab({
   const isCustomized = Object.keys(overrides).length > 0;
 
   function formatGrams(g) {
-    return g.toFixed(g >= 10 ? 1 : 2);
+    return unitMode === 'pro' ? g.toFixed(0) : g.toFixed(1);
   }
   function formatAcidDose(value) {
     if (acidIsSolid) return malt.toDisplay(value).toFixed(2);
