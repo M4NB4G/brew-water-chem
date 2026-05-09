@@ -151,6 +151,76 @@ export function solveAdditions({ source, target, volumeGallons, acidKey, raiseAl
     }
   }
 
+  // ---------- SANITY: Ca minimum 50 ppm ----------
+  // Runs before the alk step so alkForTargetRA uses the final Ca value.
+  // Split the deficit equally between gypsum and CaCl2 when both are available
+  // so the SO4 and Cl side-effects are balanced. Fall back to whichever is enabled.
+  if (current.Ca < 50) {
+    const deficit = 50 - current.Ca;
+    const gypsumOk = canUse('gypsum');
+    const cacl2Ok  = canUse('calcium_chloride');
+    const share = (gypsumOk && cacl2Ok) ? deficit / 2 : deficit;
+
+    if (gypsumOk) {
+      const grams = gFor(share, SALT_CONTRIBUTIONS_PER_G_GAL.gypsum.Ca);
+      const factor = grams / volumeGallons;
+      additions.push({
+        salt: 'gypsum',
+        name: SALT_CONTRIBUTIONS_PER_G_GAL.gypsum.name,
+        grams,
+        adds: { Ca: SALT_CONTRIBUTIONS_PER_G_GAL.gypsum.Ca, SO4: SALT_CONTRIBUTIONS_PER_G_GAL.gypsum.SO4 },
+        reason: 'Minimum Ca²⁺ 50 ppm (yeast health)',
+      });
+      current.Ca  += SALT_CONTRIBUTIONS_PER_G_GAL.gypsum.Ca  * factor;
+      current.SO4 += SALT_CONTRIBUTIONS_PER_G_GAL.gypsum.SO4 * factor;
+    }
+
+    if (cacl2Ok) {
+      const grams = gFor(share, SALT_CONTRIBUTIONS_PER_G_GAL.calcium_chloride.Ca);
+      const factor = grams / volumeGallons;
+      additions.push({
+        salt: 'calcium_chloride',
+        name: SALT_CONTRIBUTIONS_PER_G_GAL.calcium_chloride.name,
+        grams,
+        adds: { Ca: SALT_CONTRIBUTIONS_PER_G_GAL.calcium_chloride.Ca, Cl: SALT_CONTRIBUTIONS_PER_G_GAL.calcium_chloride.Cl },
+        reason: 'Minimum Ca²⁺ 50 ppm (yeast health)',
+      });
+      current.Ca += SALT_CONTRIBUTIONS_PER_G_GAL.calcium_chloride.Ca * factor;
+      current.Cl += SALT_CONTRIBUTIONS_PER_G_GAL.calcium_chloride.Cl * factor;
+    }
+  }
+
+  // ---------- SANITY: Mg minimum 5 ppm ----------
+  // Runs before the alk step so alkForTargetRA uses the final Mg value.
+  if (current.Mg < 5) {
+    const deficit = 5 - current.Mg;
+    if (canUse('epsom')) {
+      const grams = gFor(deficit, SALT_CONTRIBUTIONS_PER_G_GAL.epsom.Mg);
+      const factor = grams / volumeGallons;
+      additions.push({
+        salt: 'epsom',
+        name: SALT_CONTRIBUTIONS_PER_G_GAL.epsom.name,
+        grams,
+        adds: { Mg: SALT_CONTRIBUTIONS_PER_G_GAL.epsom.Mg, SO4: SALT_CONTRIBUTIONS_PER_G_GAL.epsom.SO4 },
+        reason: 'Minimum Mg²⁺ 5 ppm (enzyme cofactor)',
+      });
+      current.Mg  += SALT_CONTRIBUTIONS_PER_G_GAL.epsom.Mg  * factor;
+      current.SO4 += SALT_CONTRIBUTIONS_PER_G_GAL.epsom.SO4 * factor;
+    } else if (canUse('magnesium_chloride')) {
+      const grams = gFor(deficit, SALT_CONTRIBUTIONS_PER_G_GAL.magnesium_chloride.Mg);
+      const factor = grams / volumeGallons;
+      additions.push({
+        salt: 'magnesium_chloride',
+        name: SALT_CONTRIBUTIONS_PER_G_GAL.magnesium_chloride.name,
+        grams,
+        adds: { Mg: SALT_CONTRIBUTIONS_PER_G_GAL.magnesium_chloride.Mg, Cl: SALT_CONTRIBUTIONS_PER_G_GAL.magnesium_chloride.Cl },
+        reason: 'Minimum Mg²⁺ 5 ppm (enzyme cofactor)',
+      });
+      current.Mg += SALT_CONTRIBUTIONS_PER_G_GAL.magnesium_chloride.Mg * factor;
+      current.Cl += SALT_CONTRIBUTIONS_PER_G_GAL.magnesium_chloride.Cl * factor;
+    }
+  }
+
   // ---------- STEP 4: Alkalinity to hit target RA ----------
   // Exact Ca and Mg from mineral additions are now known.
   // RA = Alk - Ca/1.4 - Mg/1.7  →  needed Alk = RA + Ca/1.4 + Mg/1.7
@@ -234,75 +304,6 @@ export function solveAdditions({ source, target, volumeGallons, acidKey, raiseAl
       });
       current.Na += SALT_CONTRIBUTIONS_PER_G_GAL.table_salt.Na * factor;
       current.Cl += SALT_CONTRIBUTIONS_PER_G_GAL.table_salt.Cl * factor;
-    }
-  }
-
-  // ---------- SANITY: Ca minimum 50 ppm ----------
-  // Split the deficit equally between gypsum and CaCl2 when both are available
-  // so the SO4 and Cl side-effects are balanced. Fall back to whichever is enabled.
-  if (current.Ca < 50) {
-    const deficit = 50 - current.Ca;
-    const gypsumOk = canUse('gypsum');
-    const cacl2Ok  = canUse('calcium_chloride');
-    const share = (gypsumOk && cacl2Ok) ? deficit / 2 : deficit;
-
-    if (gypsumOk) {
-      const grams = gFor(share, SALT_CONTRIBUTIONS_PER_G_GAL.gypsum.Ca);
-      const factor = grams / volumeGallons;
-      additions.push({
-        salt: 'gypsum',
-        name: SALT_CONTRIBUTIONS_PER_G_GAL.gypsum.name,
-        grams,
-        adds: { Ca: SALT_CONTRIBUTIONS_PER_G_GAL.gypsum.Ca, SO4: SALT_CONTRIBUTIONS_PER_G_GAL.gypsum.SO4 },
-        reason: 'Minimum Ca²⁺ 50 ppm (yeast health)',
-      });
-      current.Ca  += SALT_CONTRIBUTIONS_PER_G_GAL.gypsum.Ca  * factor;
-      current.SO4 += SALT_CONTRIBUTIONS_PER_G_GAL.gypsum.SO4 * factor;
-    }
-
-    if (cacl2Ok) {
-      const grams = gFor(share, SALT_CONTRIBUTIONS_PER_G_GAL.calcium_chloride.Ca);
-      const factor = grams / volumeGallons;
-      additions.push({
-        salt: 'calcium_chloride',
-        name: SALT_CONTRIBUTIONS_PER_G_GAL.calcium_chloride.name,
-        grams,
-        adds: { Ca: SALT_CONTRIBUTIONS_PER_G_GAL.calcium_chloride.Ca, Cl: SALT_CONTRIBUTIONS_PER_G_GAL.calcium_chloride.Cl },
-        reason: 'Minimum Ca²⁺ 50 ppm (yeast health)',
-      });
-      current.Ca += SALT_CONTRIBUTIONS_PER_G_GAL.calcium_chloride.Ca * factor;
-      current.Cl += SALT_CONTRIBUTIONS_PER_G_GAL.calcium_chloride.Cl * factor;
-    }
-  }
-
-  // ---------- SANITY: Mg minimum 5 ppm ----------
-  // Magnesium is a yeast enzyme cofactor. Top up with epsom (preferred) or MgCl2.
-  if (current.Mg < 5) {
-    const deficit = 5 - current.Mg;
-    if (canUse('epsom')) {
-      const grams = gFor(deficit, SALT_CONTRIBUTIONS_PER_G_GAL.epsom.Mg);
-      const factor = grams / volumeGallons;
-      additions.push({
-        salt: 'epsom',
-        name: SALT_CONTRIBUTIONS_PER_G_GAL.epsom.name,
-        grams,
-        adds: { Mg: SALT_CONTRIBUTIONS_PER_G_GAL.epsom.Mg, SO4: SALT_CONTRIBUTIONS_PER_G_GAL.epsom.SO4 },
-        reason: 'Minimum Mg²⁺ 5 ppm (enzyme cofactor)',
-      });
-      current.Mg  += SALT_CONTRIBUTIONS_PER_G_GAL.epsom.Mg  * factor;
-      current.SO4 += SALT_CONTRIBUTIONS_PER_G_GAL.epsom.SO4 * factor;
-    } else if (canUse('magnesium_chloride')) {
-      const grams = gFor(deficit, SALT_CONTRIBUTIONS_PER_G_GAL.magnesium_chloride.Mg);
-      const factor = grams / volumeGallons;
-      additions.push({
-        salt: 'magnesium_chloride',
-        name: SALT_CONTRIBUTIONS_PER_G_GAL.magnesium_chloride.name,
-        grams,
-        adds: { Mg: SALT_CONTRIBUTIONS_PER_G_GAL.magnesium_chloride.Mg, Cl: SALT_CONTRIBUTIONS_PER_G_GAL.magnesium_chloride.Cl },
-        reason: 'Minimum Mg²⁺ 5 ppm (enzyme cofactor)',
-      });
-      current.Mg += SALT_CONTRIBUTIONS_PER_G_GAL.magnesium_chloride.Mg * factor;
-      current.Cl += SALT_CONTRIBUTIONS_PER_G_GAL.magnesium_chloride.Cl * factor;
     }
   }
 
