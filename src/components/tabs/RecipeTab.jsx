@@ -130,8 +130,8 @@ export default function RecipeTab({
     return unitMode === 'pro' ? g.toFixed(0) : g.toFixed(1);
   }
   function formatAcidDose(value) {
-    if (acidIsSolid) return malt.toDisplay(value).toFixed(2);
-    return value.toFixed(2);
+    if (acidIsSolid) return malt.toDisplay(value).toFixed(1);
+    return value.toFixed(0);
   }
   function parseAcidDoseInput(raw) {
     const v = parseFloat(raw);
