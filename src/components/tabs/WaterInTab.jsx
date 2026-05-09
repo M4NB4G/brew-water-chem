@@ -36,12 +36,14 @@ const DEMO_SOURCE = {
 };
 
 export default function WaterInTab({ source, onChangeSource }) {
+  const hasValues = Object.values(source).some((v) => v !== '' && v !== 0 && !isNaN(parseFloat(v)));
+
   const sourceRA = useMemo(
-    () => residualAlkalinity(source.Alkalinity, source.Ca, source.Mg),
+    () => residualAlkalinity(parseFloat(source.Alkalinity) || 0, parseFloat(source.Ca) || 0, parseFloat(source.Mg) || 0),
     [source]
   );
   const sourceRatio = useMemo(
-    () => sulfateChlorideRatio(source.SO4, source.Cl),
+    () => sulfateChlorideRatio(parseFloat(source.SO4) || 0, parseFloat(source.Cl) || 0),
     [source]
   );
 
@@ -107,24 +109,26 @@ export default function WaterInTab({ source, onChangeSource }) {
         </p>
       </Card>
 
-      <Card>
-        <div style={tokens.cardLabel}>Current Status</div>
-        <div style={tokens.cardTitle}>Source Water</div>
-        <div style={tokens.accentBar} />
-        <div style={{ ...tokens.statGrid, marginTop: '0.75rem' }}>
-          <StatBox value={sourceRA.toFixed(0)} label="Residual Alk (CaCO₃)" />
-          <StatBox
-            value={isFinite(sourceRatio) ? sourceRatio.toFixed(2) : '∞'}
-            label="SO₄ : Cl ratio"
-          />
-          <StatBox value={source.Alkalinity.toFixed(0)} label="Alkalinity" />
-          <StatBox value={source.pH.toFixed(1)} label="pH" />
-        </div>
-        <p style={tokens.notice}>
-          Character: {ratioCharacter(sourceRatio)}. RA per Kolbach (1953):
-          TotalAlk − (Ca/1.4 + Mg/1.7).
-        </p>
-      </Card>
+      {hasValues && (
+        <Card>
+          <div style={tokens.cardLabel}>Current Status</div>
+          <div style={tokens.cardTitle}>Source Water</div>
+          <div style={tokens.accentBar} />
+          <div style={{ ...tokens.statGrid, marginTop: '0.75rem' }}>
+            <StatBox value={sourceRA.toFixed(0)} label="Residual Alk (CaCO₃)" />
+            <StatBox
+              value={isFinite(sourceRatio) ? sourceRatio.toFixed(2) : '∞'}
+              label="SO₄ : Cl ratio"
+            />
+            <StatBox value={(parseFloat(source.Alkalinity) || 0).toFixed(0)} label="Alkalinity" />
+            <StatBox value={(parseFloat(source.pH) || 0).toFixed(1)} label="pH" />
+          </div>
+          <p style={tokens.notice}>
+            Character: {ratioCharacter(sourceRatio)}. RA per Kolbach (1953):
+            TotalAlk − (Ca/1.4 + Mg/1.7).
+          </p>
+        </Card>
+      )}
     </>
   );
 }
