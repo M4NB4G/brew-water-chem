@@ -79,7 +79,7 @@ export default function RecipeTab({
   const recommendedSalts = useMemo(() => {
     const out = {};
     if (!recommendation) return out;
-    for (const a of recommendation.additions) out[a.salt] = a.grams;
+    for (const a of recommendation.additions) out[a.salt] = (out[a.salt] || 0) + a.grams;
     return out;
   }, [recommendation]);
 
