@@ -47,14 +47,6 @@ function DraftInput({ initialValue, format, parse, onChange, style }) {
   );
 }
 
-const FINAL_PROFILE_ROWS = [
-  ['Ca', 'Calcium'],
-  ['Mg', 'Magnesium'],
-  ['Na', 'Sodium'],
-  ['SO4', 'Sulfate'],
-  ['Cl', 'Chloride'],
-  ['Alk', 'Alkalinity'],
-];
 
 export default function RecipeTab({
   source,
@@ -151,7 +143,7 @@ export default function RecipeTab({
   return (
     <>
       <Card>
-        <div style={tokens.cardLabel}>Batch Volume & Acid</div>
+        <div style={tokens.cardLabel}>Mash Volume & Acid</div>
         <InputRow
           label="Volume"
           unit={volumeUnit(unitMode)}
@@ -370,50 +362,65 @@ export default function RecipeTab({
             );
           })()}
 
-          {finalIons && (
-            <Card>
-              <div style={tokens.cardLabel}>Predicted Final Profile</div>
-              <div style={tokens.statGrid}>
-                {FINAL_PROFILE_ROWS.map(([key, label]) => {
-                  const val = finalIons[key];
-                  const tgt = target[key];
-                  const off = Math.abs(val - tgt);
-                  const pctOff = tgt > 0 ? (off / tgt) * 100 : 0;
-                  const c = pctOff < 10 ? '#3a8055' : pctOff < 25 ? '#a07835' : '#a04835';
-                  return (
+          {finalIons && (() => {
+            const finalRA = residualAlkalinity(finalIons.Alk, finalIons.Ca, finalIons.Mg);
+            const sign = (n) => (n > 0 ? '+' : '');
+
+            const statColor = (val, tgt) => {
+              const off = Math.abs(val - tgt);
+              const pct = tgt !== 0 ? (off / Math.abs(tgt)) * 100 : 0;
+              return pct < 10 ? '#3a8055' : pct < 25 ? '#a07835' : '#a04835';
+            };
+            const raColor = (() => {
+              const off = Math.abs(finalRA - target.RA);
+              return off < 20 ? '#3a8055' : off < 40 ? '#a07835' : '#a04835';
+            })();
+
+            return (
+              <Card>
+                <div style={tokens.cardLabel}>Predicted Final Profile</div>
+
+                <div style={profileSectionLabel}>Mash Chemistry</div>
+                <div style={tokens.statGrid}>
+                  {[['Alk','Alkalinity'],['Ca','Calcium'],['Mg','Magnesium']].map(([key, label]) => (
                     <StatBox
                       key={key}
-                      value={val.toFixed(0)}
+                      value={finalIons[key].toFixed(0)}
                       label={label}
-                      sublabel={`tgt ${tgt}`}
-                      valueStyle={{ fontSize: '1.6rem', color: c }}
+                      sublabel={`tgt ${target[key]}`}
+                      valueStyle={{ fontSize: '1.6rem', color: statColor(finalIons[key], target[key]) }}
                     />
-                  );
-                })}
-                {(() => {
-                  const finalRA = residualAlkalinity(finalIons.Alk, finalIons.Ca, finalIons.Mg);
-                  const tgtRA = target.RA;
-                  const offRA = Math.abs(finalRA - tgtRA);
-                  const c = offRA < 20 ? '#3a8055' : offRA < 40 ? '#a07835' : '#a04835';
-                  const sign = (n) => (n > 0 ? '+' : '');
-                  return (
+                  ))}
+                  <StatBox
+                    value={`${sign(finalRA)}${finalRA.toFixed(0)}`}
+                    label="Residual Alk"
+                    sublabel={`tgt ${sign(target.RA)}${target.RA}`}
+                    valueStyle={{ fontSize: '1.6rem', color: raColor }}
+                  />
+                </div>
+
+                <div style={{ ...profileSectionLabel, marginTop: '1rem' }}>Flavor</div>
+                <div style={tokens.statGrid}>
+                  {[['SO4','Sulfate'],['Cl','Chloride'],['Na','Sodium']].map(([key, label]) => (
                     <StatBox
-                      value={`${sign(finalRA)}${finalRA.toFixed(0)}`}
-                      label="Residual Alk"
-                      sublabel={`tgt ${sign(tgtRA)}${tgtRA}`}
-                      valueStyle={{ fontSize: '1.6rem', color: c }}
+                      key={key}
+                      value={finalIons[key].toFixed(0)}
+                      label={label}
+                      sublabel={`tgt ${target[key]}`}
+                      valueStyle={{ fontSize: '1.6rem', color: statColor(finalIons[key], target[key]) }}
                     />
-                  );
-                })()}
-              </div>
-              <p style={tokens.notice}>
-                Final SO₄:Cl ratio:{' '}
-                <strong>{sulfateChlorideRatio(finalIons.SO4, finalIons.Cl).toFixed(2)}</strong>{' '}
-                (target {style.so4_cl_target.toFixed(2)}). RA per Kolbach (1953):
-                Alk − (Ca/1.4 + Mg/1.7), all as CaCO₃.
-              </p>
-            </Card>
-          )}
+                  ))}
+                </div>
+
+                <p style={tokens.notice}>
+                  SO₄:Cl ratio:{' '}
+                  <strong>{sulfateChlorideRatio(finalIons.SO4, finalIons.Cl).toFixed(2)}</strong>{' '}
+                  (target {style.so4_cl_target.toFixed(2)}). RA per Kolbach (1953):
+                  Alk − (Ca/1.4 + Mg/1.7), all as CaCO₃.
+                </p>
+              </Card>
+            );
+          })()}
         </>
       )}
     </>
@@ -451,6 +458,15 @@ const hintStyle = {
 const unitLabelStyle = {
   fontSize: '0.78rem',
   color: colors.textMuted,
+};
+
+const profileSectionLabel = {
+  fontSize: '0.72rem',
+  fontWeight: 700,
+  letterSpacing: '0.08em',
+  textTransform: 'uppercase',
+  color: colors.textMuted,
+  marginBottom: '0.5rem',
 };
 
 const saltGridStyle = {
