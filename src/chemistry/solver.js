@@ -49,8 +49,12 @@ export function solveAdditions({ source, target, volumeGallons, acidKey, raiseAl
   const NA_CAP = Math.min(100, 3 * target.Na);
 
   const current = {
-    Ca: source.Ca, Mg: source.Mg, Na: source.Na,
-    SO4: source.SO4, Cl: source.Cl, Alk: source.Alkalinity,
+    Ca: parseFloat(source.Ca) || 0,
+    Mg: parseFloat(source.Mg) || 0,
+    Na: parseFloat(source.Na) || 0,
+    SO4: parseFloat(source.SO4) || 0,
+    Cl: parseFloat(source.Cl) || 0,
+    Alk: parseFloat(source.Alkalinity) || 0,
   };
 
   const additions = [];
