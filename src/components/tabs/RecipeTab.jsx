@@ -369,7 +369,7 @@ export default function RecipeTab({
             const statColor = (val, tgt) => {
               const off = Math.abs(val - tgt);
               const pct = tgt !== 0 ? (off / Math.abs(tgt)) * 100 : 0;
-              return pct < 10 ? '#3a8055' : pct < 25 ? '#a07835' : '#a04835';
+              return pct < 20 ? '#3a8055' : pct < 50 ? '#a07835' : '#a04835';
             };
             const raColor = (() => {
               const off = Math.abs(finalRA - target.RA);
@@ -382,7 +382,7 @@ export default function RecipeTab({
 
                 <div style={profileSectionLabel}>Mash Chemistry</div>
                 <div style={tokens.statGrid}>
-                  {[['Alk','Alkalinity'],['Ca','Calcium'],['Mg','Magnesium']].map(([key, label]) => (
+                  {[['Ca','Calcium'],['Mg','Magnesium']].map(([key, label]) => (
                     <StatBox
                       key={key}
                       value={finalIons[key].toFixed(0)}
@@ -396,6 +396,12 @@ export default function RecipeTab({
                     label="Residual Alk"
                     sublabel={`tgt ${sign(target.RA)}${target.RA}`}
                     valueStyle={{ fontSize: '1.6rem', color: raColor }}
+                  />
+                  <StatBox
+                    value={finalIons.Alk.toFixed(0)}
+                    label="Total Alkalinity"
+                    sublabel={`tgt ${target.Alk}`}
+                    valueStyle={{ fontSize: '1.6rem', color: statColor(finalIons.Alk, target.Alk) }}
                   />
                 </div>
 
