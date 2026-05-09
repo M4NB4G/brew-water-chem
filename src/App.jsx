@@ -14,13 +14,7 @@ import { colors } from './components/shared/styles.js';
 import { SALT_CONTRIBUTIONS_PER_G_GAL } from './chemistry/salts.js';
 
 const DEFAULT_SOURCE = {
-  Ca: 30,
-  Mg: 5,
-  Na: 15,
-  SO4: 25,
-  Cl: 20,
-  Alkalinity: 80,
-  pH: 7.5,
+  Ca: '', Mg: '', Na: '', SO4: '', Cl: '', Alkalinity: '', pH: '',
 };
 
 const TABS = [
@@ -34,9 +28,9 @@ export default function App() {
   const [tab, setTab] = useState('water');
   const [unitMode, setUnitMode] = useState('pro');
   const [source, setSource] = useState(DEFAULT_SOURCE);
-  const [styleId, setStyleId] = useState('pale_ale');
+  const [styleId, setStyleId] = useState('hoppy_ale');
   // Volume is held in the user's display unit; converted to gallons for math.
-  const [volume, setVolume] = useState(10); // default 10 bbl (Pro mode)
+  const [volume, setVolume] = useState(10); // default 10 bbl (Pro) / 5 gal (Home)
   const [acidKey, setAcidKey] = useState('lactic_88');
   const [raiseAlkSource, setRaiseAlkSource] = useState('baking_soda');
   // Recipe overrides — { [saltKey]: grams, _acidDose: number }
@@ -63,17 +57,12 @@ export default function App() {
     [volume, unitMode]
   );
 
-  // When unit mode flips, convert the displayed volume so the actual batch
-  // size stays the same (10 bbl ↔ 310 gal).
+  // When unit mode flips, reset volume to the mode's natural default rather
+  // than converting — Pro works in bbl (default 10), Home in gal (default 5).
   function handleUnitToggle(nextMode) {
     if (nextMode === unitMode) return;
-    if (nextMode === 'home' && unitMode === 'pro') {
-      setVolume((v) => (parseFloat(v) || 0) * 31);
-    } else if (nextMode === 'pro' && unitMode === 'home') {
-      setVolume((v) => (parseFloat(v) || 0) / 31);
-    }
+    setVolume(nextMode === 'home' ? 5 : 10);
     setUnitMode(nextMode);
-    // Overrides are scale-tied — clear when batch size representation changes.
     setOverrides({});
   }
 
