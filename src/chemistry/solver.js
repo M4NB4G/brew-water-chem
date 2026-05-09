@@ -238,12 +238,16 @@ export function solveAdditions({ source, target, volumeGallons, acidKey, raiseAl
   }
 
   // ---------- SANITY: Ca minimum 50 ppm ----------
-  // Calcium is essential for yeast health and enzyme activity. If all prior
-  // steps left Ca below 50 ppm, top up with gypsum (preferred) or CaCl2.
+  // Split the deficit equally between gypsum and CaCl2 when both are available
+  // so the SO4 and Cl side-effects are balanced. Fall back to whichever is enabled.
   if (current.Ca < 50) {
     const deficit = 50 - current.Ca;
-    if (canUse('gypsum')) {
-      const grams = gFor(deficit, SALT_CONTRIBUTIONS_PER_G_GAL.gypsum.Ca);
+    const gypsumOk = canUse('gypsum');
+    const cacl2Ok  = canUse('calcium_chloride');
+    const share = (gypsumOk && cacl2Ok) ? deficit / 2 : deficit;
+
+    if (gypsumOk) {
+      const grams = gFor(share, SALT_CONTRIBUTIONS_PER_G_GAL.gypsum.Ca);
       const factor = grams / volumeGallons;
       additions.push({
         salt: 'gypsum',
@@ -254,8 +258,10 @@ export function solveAdditions({ source, target, volumeGallons, acidKey, raiseAl
       });
       current.Ca  += SALT_CONTRIBUTIONS_PER_G_GAL.gypsum.Ca  * factor;
       current.SO4 += SALT_CONTRIBUTIONS_PER_G_GAL.gypsum.SO4 * factor;
-    } else if (canUse('calcium_chloride')) {
-      const grams = gFor(deficit, SALT_CONTRIBUTIONS_PER_G_GAL.calcium_chloride.Ca);
+    }
+
+    if (cacl2Ok) {
+      const grams = gFor(share, SALT_CONTRIBUTIONS_PER_G_GAL.calcium_chloride.Ca);
       const factor = grams / volumeGallons;
       additions.push({
         salt: 'calcium_chloride',
