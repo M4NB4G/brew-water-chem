@@ -62,18 +62,27 @@ export function solveAdditions({ source, target, volumeGallons, acidKey, raiseAl
     Math.max(0, deltaPpm / contribPerGGal) * volumeGallons;
 
   // ---------- STEP 1: CaCl2 for chloride deficit ----------
+  // Capped by Ca headroom so CaCl2 doesn't consume the entire Ca budget before
+  // gypsum gets a chance to hit SO4. NaCl (Step 5) fills any remaining Cl gap.
   if (canUse('calcium_chloride') && target.Cl - current.Cl > 5 && target.Ca - current.Ca > 0) {
-    const grams = gFor(target.Cl - current.Cl, SALT_CONTRIBUTIONS_PER_G_GAL.calcium_chloride.Cl);
-    const factor = grams / volumeGallons;
-    additions.push({
-      salt: 'calcium_chloride',
-      name: SALT_CONTRIBUTIONS_PER_G_GAL.calcium_chloride.name,
-      grams,
-      adds: { Ca: SALT_CONTRIBUTIONS_PER_G_GAL.calcium_chloride.Ca, Cl: SALT_CONTRIBUTIONS_PER_G_GAL.calcium_chloride.Cl },
-      reason: 'Hit Cl⁻ target; provides Ca²⁺',
-    });
-    current.Ca += SALT_CONTRIBUTIONS_PER_G_GAL.calcium_chloride.Ca * factor;
-    current.Cl += SALT_CONTRIBUTIONS_PER_G_GAL.calcium_chloride.Cl * factor;
+    const gramsByCl = gFor(target.Cl - current.Cl, SALT_CONTRIBUTIONS_PER_G_GAL.calcium_chloride.Cl);
+    const caHeadroom = Math.max(0, target.Ca - current.Ca);
+    const maxGramsByCa = (caHeadroom / SALT_CONTRIBUTIONS_PER_G_GAL.calcium_chloride.Ca) * volumeGallons;
+    const grams = Math.min(gramsByCl, maxGramsByCa);
+    if (grams > 0) {
+      const factor = grams / volumeGallons;
+      additions.push({
+        salt: 'calcium_chloride',
+        name: SALT_CONTRIBUTIONS_PER_G_GAL.calcium_chloride.name,
+        grams,
+        adds: { Ca: SALT_CONTRIBUTIONS_PER_G_GAL.calcium_chloride.Ca, Cl: SALT_CONTRIBUTIONS_PER_G_GAL.calcium_chloride.Cl },
+        reason: gramsByCl > maxGramsByCa
+          ? 'Hit Cl⁻ target (Ca-capped — remainder filled by NaCl)'
+          : 'Hit Cl⁻ target; provides Ca²⁺',
+      });
+      current.Ca += SALT_CONTRIBUTIONS_PER_G_GAL.calcium_chloride.Ca * factor;
+      current.Cl += SALT_CONTRIBUTIONS_PER_G_GAL.calcium_chloride.Cl * factor;
+    }
   }
 
   // ---------- STEP 2: Epsom (or MgCl2) for Mg deficit ----------
