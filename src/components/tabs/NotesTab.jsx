@@ -58,7 +58,8 @@ export default function NotesTab() {
             Modern hazy/NEIPA chloride-forward practice.
           </p>
           <p>
-            Weyermann Specialty Malts. Acidulated Malt spec sheet (3% lactic by weight).
+            Weyermann Specialty Malts. Acidulated Malt (Sauermalz) spec sheet. Lactic
+            acid content typically 1–2% by weight; app uses 2% as a conservative estimate.
           </p>
           <p>CRC Handbook of Chemistry and Physics, 97th ed. Acid densities and concentrations.</p>
         </div>

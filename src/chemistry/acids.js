@@ -51,11 +51,12 @@ export const ACIDS = {
     unit: 'mL',
   },
   acidulated_malt: {
-    name: 'Acidulated Malt (Weyermann, 3% lactic)',
-    weight_fraction_lactic: 0.03,
+    name: 'Acidulated Malt (Weyermann, ~2% lactic)',
+    weight_fraction_lactic: 0.02,
     mw_lactic: 90.08,
     is_solid: true,
-    // = (0.03 × 1000) / 90.08 ≈ 0.333 mEq/g
+    // = (0.02 × 1000) / 90.08 ≈ 0.222 mEq/g
+    // Weyermann spec: 1–2% lactic by weight; actual content varies by batch.
     unit: 'g',
   },
 };
