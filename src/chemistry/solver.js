@@ -5,9 +5,10 @@
 // reasoning is visible.
 //
 // Order of operations:
-//   1. CaCl2 to hit Cl deficit (also adds Ca)
+//   1. CaCl2 first pass — up to 70% of Cl target (Ca-capped)
 //   2. Epsom for Mg deficit (adds SO4 — switch to MgCl2 if SO4 would overshoot)
-//   3. Gypsum to hit remaining SO4 deficit (capped so Ca doesn't exceed target)
+//   3. Gypsum to hit remaining SO4 deficit (Ca-capped)
+//   3b. CaCl2 second pass — remaining Cl up to Ca limit (after SO4 is set)
 //   4. Alkalinity: now that exact Ca and Mg are known, compute the Alk needed
 //      to achieve target.RA (alkForTargetRA = RA + Ca/1.4 + Mg/1.7), then:
 //        - source > alkForTargetRA: dose acid
@@ -61,11 +62,13 @@ export function solveAdditions({ source, target, volumeGallons, acidKey, raiseAl
   const gFor = (deltaPpm, contribPerGGal) =>
     Math.max(0, deltaPpm / contribPerGGal) * volumeGallons;
 
-  // ---------- STEP 1: CaCl2 for chloride deficit ----------
-  // Capped by Ca headroom so CaCl2 doesn't consume the entire Ca budget before
-  // gypsum gets a chance to hit SO4. NaCl (Step 5) fills any remaining Cl gap.
+  // ---------- STEP 1: CaCl2 first pass — up to 70% of Cl target ----------
+  // Reserving the remaining Ca headroom for gypsum ensures SO4 can be hit even
+  // when the Cl target is high (e.g. Hazy IPA). A second CaCl2 pass after
+  // gypsum spends whatever Ca budget is left. NaCl fills any final Cl gap.
   if (canUse('calcium_chloride') && target.Cl - current.Cl > 5 && target.Ca - current.Ca > 0) {
-    const gramsByCl = gFor(target.Cl - current.Cl, SALT_CONTRIBUTIONS_PER_G_GAL.calcium_chloride.Cl);
+    const clFirst = Math.max(0, target.Cl * 0.70 - current.Cl);
+    const gramsByCl = gFor(clFirst, SALT_CONTRIBUTIONS_PER_G_GAL.calcium_chloride.Cl);
     const caHeadroom = Math.max(0, target.Ca - current.Ca);
     const maxGramsByCa = (caHeadroom / SALT_CONTRIBUTIONS_PER_G_GAL.calcium_chloride.Ca) * volumeGallons;
     const grams = Math.min(gramsByCl, maxGramsByCa);
@@ -76,9 +79,7 @@ export function solveAdditions({ source, target, volumeGallons, acidKey, raiseAl
         name: SALT_CONTRIBUTIONS_PER_G_GAL.calcium_chloride.name,
         grams,
         adds: { Ca: SALT_CONTRIBUTIONS_PER_G_GAL.calcium_chloride.Ca, Cl: SALT_CONTRIBUTIONS_PER_G_GAL.calcium_chloride.Cl },
-        reason: gramsByCl > maxGramsByCa
-          ? 'Hit Cl⁻ target (Ca-capped — remainder filled by NaCl)'
-          : 'Hit Cl⁻ target; provides Ca²⁺',
+        reason: 'Hit Cl⁻ target (first pass); provides Ca²⁺',
       });
       current.Ca += SALT_CONTRIBUTIONS_PER_G_GAL.calcium_chloride.Ca * factor;
       current.Cl += SALT_CONTRIBUTIONS_PER_G_GAL.calcium_chloride.Cl * factor;
@@ -157,6 +158,28 @@ export function solveAdditions({ source, target, volumeGallons, acidKey, raiseAl
       });
       current.Ca  += SALT_CONTRIBUTIONS_PER_G_GAL.gypsum.Ca  * factor;
       current.SO4 += SALT_CONTRIBUTIONS_PER_G_GAL.gypsum.SO4 * factor;
+    }
+  }
+
+  // ---------- STEP 3b: CaCl2 second pass — remaining Cl up to Ca limit ----------
+  // After gypsum has spent its Ca budget on SO4, any remaining Ca headroom is
+  // available to push Cl closer to target. NaCl (Step 5) fills the final gap.
+  if (canUse('calcium_chloride') && target.Cl - current.Cl > 5 && target.Ca - current.Ca > 0) {
+    const gramsByCl = gFor(target.Cl - current.Cl, SALT_CONTRIBUTIONS_PER_G_GAL.calcium_chloride.Cl);
+    const caHeadroom = Math.max(0, target.Ca - current.Ca);
+    const maxGramsByCa = (caHeadroom / SALT_CONTRIBUTIONS_PER_G_GAL.calcium_chloride.Ca) * volumeGallons;
+    const grams = Math.min(gramsByCl, maxGramsByCa);
+    if (grams > 0) {
+      const factor = grams / volumeGallons;
+      additions.push({
+        salt: 'calcium_chloride',
+        name: SALT_CONTRIBUTIONS_PER_G_GAL.calcium_chloride.name,
+        grams,
+        adds: { Ca: SALT_CONTRIBUTIONS_PER_G_GAL.calcium_chloride.Ca, Cl: SALT_CONTRIBUTIONS_PER_G_GAL.calcium_chloride.Cl },
+        reason: 'Hit Cl⁻ target (second pass — remaining Ca headroom after SO₄)',
+      });
+      current.Ca += SALT_CONTRIBUTIONS_PER_G_GAL.calcium_chloride.Ca * factor;
+      current.Cl += SALT_CONTRIBUTIONS_PER_G_GAL.calcium_chloride.Cl * factor;
     }
   }
 

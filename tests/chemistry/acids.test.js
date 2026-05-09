@@ -35,8 +35,8 @@ describe('acidCapacity', () => {
     expect(acidCapacity('phosphoric_85')).toBeCloseTo(14.617, 2);
   });
 
-  it('acidulated malt: ≈ 0.333 mEq/g (3% lactic)', () => {
-    expect(acidCapacity('acidulated_malt')).toBeCloseTo(0.333, 2);
+  it('acidulated malt: ≈ 0.222 mEq/g (2% lactic)', () => {
+    expect(acidCapacity('acidulated_malt')).toBeCloseTo(0.222, 2);
   });
 
   it('throws for an unknown acid key', () => {
@@ -112,11 +112,11 @@ describe('first-principles hand-calculations', () => {
     expect(expected).toBeCloseTo(14.616, 2);
   });
 
-  it('acidulated malt capacity: 0.03 × 1000 / 90.08 ≈ 0.3330 mEq/g', () => {
-    // 3% lactic by weight (Weyermann); divided by lactic MW
-    const expected = (0.03 * 1000) / 90.08;
+  it('acidulated malt capacity: 0.02 × 1000 / 90.08 ≈ 0.2220 mEq/g', () => {
+    // 2% lactic by weight (Weyermann spec 1–2%; app uses 2%); divided by lactic MW
+    const expected = (0.02 * 1000) / 90.08;
     expect(acidCapacity('acidulated_malt')).toBeCloseTo(expected, 6);
-    expect(expected).toBeCloseTo(0.333, 3);
+    expect(expected).toBeCloseTo(0.222, 3);
   });
 
   it('lactic 88%, 2 mL into 10 gal: full hand-calc of alkalinity reduction', () => {
@@ -139,10 +139,10 @@ describe('first-principles hand-calculations', () => {
   });
 
   it('acidulated malt, 100 g into 5 gal: hand-calc reduction', () => {
-    // mEq = 100 × 0.3331 = 33.31
+    // mEq = 100 × 0.2220 = 22.20  (2% lactic; was 3%/0.333 before Weyermann correction)
     // L   = 18.927
-    // ppm CaCO3 = (33.31 / 18.927) × 50.04 = 88.07 mg/L
-    expect(acidAlkalinityReduction('acidulated_malt', 100, 5)).toBeCloseTo(88.07, 1);
+    // ppm CaCO3 = (22.20 / 18.927) × 50.04 ≈ 58.70 mg/L
+    expect(acidAlkalinityReduction('acidulated_malt', 100, 5)).toBeCloseTo(58.70, 1);
   });
 
   it('1 mEq H+ per L = 50.04 mg/L as CaCO3 (definition check)', () => {

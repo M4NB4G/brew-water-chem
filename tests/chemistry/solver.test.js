@@ -137,53 +137,56 @@ describe('solveAdditions — fully traced single-step hand-calculations', () => 
   // caught even if the high-level "ion within X mg/L" tests pass.
 
   it('pure Cl + Ca deficit → CaCl2 only, hand-traced grams', () => {
-    // Source: zero ions, Alkalinity = 50
-    // Target: Ca=72, Cl=100, Alk=50
+    // Source: zero Ca/SO4/Cl, Mg=5 (at sanity floor), Alkalinity = 50
+    // Target: Ca=72, Mg=5, Cl=100, Alk=50
     // Volume: 1 gallon
     //
-    // Pre-estimate (step 0):
-    //   CaCl2 for Cl=100: grams/gal = 100/127.4 = 0.78493 → estCa = 72.0×0.78493 = 56.51
-    //   alkForTargetRA = RA + estCa/1.4 = RA + 40.37
-    //   Set RA = 10 → alkForTargetRA = 50.37; |50.37−50| < 5 → no alk step.
+    // Solver splits CaCl2 into two passes: first up to 70 ppm Cl, then remaining
+    // 30 ppm after the (skipped) gypsum step. Total CaCl2 grams must equal
+    // 100/127.4 = 0.78493 g (same as a single-pass would produce).
     //
-    // Step 2 (Cl):  grams = 100/127.4 × 1 = 0.78493 g
-    //               Cl added = 100.0 ppm, Ca added = 56.51 ppm
-    // Steps 3–6:    no deficits → no action
-    //
-    // Result: 1 addition (calcium_chloride, 0.785 g), no acid, Cl ≈ 100
+    // Step 1 (CaCl2 first pass, 70 ppm Cl):
+    //   grams = 70/127.4 × 1 = 0.54947 g → Ca += 72×0.54947=39.56, Cl → 70
+    // Step 3b (CaCl2 second pass, 30 ppm Cl remaining):
+    //   grams = 30/127.4 × 1 = 0.23549 g → Ca += 72×0.23549=16.96, Cl → 100
+    // Ca sanity: Ca=56.52 ≥ 50 → skip
+    // Mg sanity: Mg=5 ≥ 5 → skip
+    // alkForTargetRA = 10 + 56.52/1.4 + 5/1.7 ≈ 53.3 → |53.3−50| < 5 → no alk step
     const r = solveAdditions({
-      source: { Ca: 0, Mg: 0, Na: 0, SO4: 0, Cl: 0, Alkalinity: 50, pH: 7 },
-      target: { Ca: 72, Mg: 0, Na: 0, SO4: 0, Cl: 100, Alk: 50, RA: 10 },
+      source: { Ca: 0, Mg: 5, Na: 0, SO4: 0, Cl: 0, Alkalinity: 50, pH: 7 },
+      target: { Ca: 72, Mg: 5, Na: 0, SO4: 0, Cl: 100, Alk: 50, RA: 10 },
       volumeGallons: 1,
       acidKey: 'lactic_88',
       raiseAlkSource: 'baking_soda',
     });
-    expect(r.additions).toHaveLength(1);
-    expect(r.additions[0].salt).toBe('calcium_chloride');
-    expect(r.additions[0].grams).toBeCloseTo(100 / 127.4, 4);
+    // Two CaCl2 additions (two-pass strategy) — verify total grams, not count
+    const cacl2Grams = r.additions
+      .filter((a) => a.salt === 'calcium_chloride')
+      .reduce((sum, a) => sum + a.grams, 0);
+    expect(cacl2Grams).toBeCloseTo(100 / 127.4, 3);
+    expect(r.additions.every((a) => a.salt === 'calcium_chloride')).toBe(true);
     expect(r.acidDose).toBeNull();
     expect(r.finalIons.Cl).toBeCloseTo(100.0, 1);
     expect(r.finalIons.Ca).toBeCloseTo(72.0 * (100 / 127.4), 1);
   });
 
   it('pure SO4 deficit → gypsum only, hand-traced grams', () => {
-    // Source: zero except Alkalinity = 25
-    // Target: SO4=147.4, Alk=25
+    // Source: zero Ca/SO4/Cl, Mg=5 (at sanity floor), Alkalinity = 25
+    // Target: SO4=147.4, Alk=25, Mg=5 (no Mg deficit to trigger epsom)
     // Volume: 1 gallon
-    //
-    // Pre-estimate (step 0):
-    //   Gypsum for SO4=147.4: grams/gal = 1.0 → estCa = 61.5
-    //   alkForTargetRA = RA + estCa/1.4 = RA + 43.93
-    //   Set RA = -19 → alkForTargetRA = 24.93; |24.93−25| < 5 → no alk step.
     //
     // Step 3 (SO4):  grams = 147.4/147.4 × 1 = 1.000 g
     //                Ca added = 61.5 ppm, SO4 added = 147.4 ppm (exact)
+    //                Ca-cap: caHeadroom = 61.5-0=61.5, maxByCa=1.0g → no cap
     // All other steps: no deficits → no action
+    // Ca sanity: Ca=61.5 ≥ 50 → skip
+    // Mg sanity: Mg=5 ≥ 5 → skip
+    // alkForTargetRA = -19 + 61.5/1.4 + 5/1.7 ≈ 27.9 → |27.9−25| < 5 → no alk step
     //
     // Result: 1 addition (gypsum, 1.000 g), no acid
     const r = solveAdditions({
-      source: { Ca: 0, Mg: 0, Na: 0, SO4: 0, Cl: 0, Alkalinity: 25, pH: 7 },
-      target: { Ca: 61.5, Mg: 0, Na: 0, SO4: 147.4, Cl: 0, Alk: 25, RA: -19 },
+      source: { Ca: 0, Mg: 5, Na: 0, SO4: 0, Cl: 0, Alkalinity: 25, pH: 7 },
+      target: { Ca: 61.5, Mg: 5, Na: 0, SO4: 147.4, Cl: 0, Alk: 25, RA: -19 },
       volumeGallons: 1,
       acidKey: 'lactic_88',
       raiseAlkSource: 'baking_soda',
@@ -196,17 +199,20 @@ describe('solveAdditions — fully traced single-step hand-calculations', () => 
   });
 
   it('alkalinity-excess source → acid dose hand-traced', () => {
-    // Source: Alkalinity 200, all else zero
-    // Target: Alk 50 → reduce by 150 ppm CaCO3 with 88% lactic
-    // Volume: 5 gallons
+    // Source: Ca=50, Mg=5 (at sanity floors), Alkalinity 200 — no mineral deficits.
+    // Target: Ca=50, Mg=5, Alk=50, RA chosen so alkForTargetRA = 50 exactly.
+    //   RA = 50 - 50/1.4 - 5/1.7 = 50 - 35.714 - 2.941 = 11.345
+    // alkDelta = 50 - 200 = -150 → reduce alkalinity by 150 ppm CaCO3.
     //
+    // Volume: 5 gallons
     // Liters = 5 × 3.78541 = 18.927 L
     // mEq needed = 150 / 50.04 × 18.927 = 56.74 mEq
     // capacity (lactic_88) = 11.812 mEq/mL
     // mL = 56.74 / 11.812 = 4.804 mL
+    const RA = 50 - 50 / 1.4 - 5 / 1.7;
     const r = solveAdditions({
-      source: { Ca: 0, Mg: 0, Na: 0, SO4: 0, Cl: 0, Alkalinity: 200, pH: 7.5 },
-      target: { Ca: 0, Mg: 0, Na: 0, SO4: 0, Cl: 0, Alk: 50, RA: 50 },
+      source: { Ca: 50, Mg: 5, Na: 0, SO4: 0, Cl: 0, Alkalinity: 200, pH: 7.5 },
+      target: { Ca: 50, Mg: 5, Na: 0, SO4: 0, Cl: 0, Alk: 50, RA },
       volumeGallons: 5,
       acidKey: 'lactic_88',
       raiseAlkSource: 'baking_soda',
@@ -218,15 +224,19 @@ describe('solveAdditions — fully traced single-step hand-calculations', () => 
   });
 
   it('alkalinity-shortage source with baking_soda raise → hand-traced grams', () => {
-    // Source: Alk 50, target Alk 200 → raise by 150 ppm CaCO3 with NaHCO3
-    // Volume: 1 gallon. Na target = 100 so NA_CAP = min(100, 300) = 100.
-    // Na from soda = 72.3 × 0.95416 = 68.99 ppm < 100 → cap not reached.
+    // Source: Ca=50, Mg=5 (at sanity floors), Alk=50 — no mineral deficits.
+    // Target: Ca=50, Mg=5, Na=100, Alk=200. RA chosen so alkForTargetRA = 200 exactly.
+    //   RA = 200 - 50/1.4 - 5/1.7 = 200 - 35.714 - 2.941 = 161.345
+    // alkDelta = 200 - 50 = 150 → raise by 150 ppm CaCO3 with NaHCO3.
+    // Volume: 1 gallon. NA_CAP = min(100, 3×100) = 100.
+    // Na from soda = 72.3 × 0.9542 ≈ 68.99 ppm < 100 → cap not reached.
     //
     // alk_per_g_gal = 191.7 × (50.04 / 61.02) = 157.207 ppm CaCO3
     // grams = 150 / 157.207 × 1 = 0.95416 g
+    const RA = 200 - 50 / 1.4 - 5 / 1.7;
     const r = solveAdditions({
-      source: { Ca: 0, Mg: 0, Na: 0, SO4: 0, Cl: 0, Alkalinity: 50, pH: 7 },
-      target: { Ca: 0, Mg: 0, Na: 100, SO4: 0, Cl: 0, Alk: 200, RA: 200 },
+      source: { Ca: 50, Mg: 5, Na: 0, SO4: 0, Cl: 0, Alkalinity: 50, pH: 7 },
+      target: { Ca: 50, Mg: 5, Na: 100, SO4: 0, Cl: 0, Alk: 200, RA },
       volumeGallons: 1,
       acidKey: 'lactic_88',
       raiseAlkSource: 'baking_soda',
@@ -239,15 +249,18 @@ describe('solveAdditions — fully traced single-step hand-calculations', () => 
   });
 
   it('alkalinity-shortage with pickling_lime raise → hand-traced grams', () => {
-    // Source: Alk 50, target Alk 200 → raise by 150 ppm CaCO3 with Ca(OH)2
+    // Source: Ca=50, Mg=5 (at sanity floors), Alk=50 — no mineral deficits.
+    // Target: Ca=50, Mg=5, Alk=200. RA chosen so alkForTargetRA = 200 exactly.
+    //   RA = 200 - 50/1.4 - 5/1.7 = 161.345
+    // alkDelta = 200 - 50 = 150 → raise by 150 ppm CaCO3 with Ca(OH)2.
     // Volume: 1 gallon
     //
     // alk_per_g_gal (lime) = 357.5 ppm CaCO3 directly (no HCO3 conversion)
     // grams = 150 / 357.5 × 1 = 0.41958 g
-    // Ca added = 142.9 × 0.41958 / 1 = 59.96 ppm
+    const RA = 200 - 50 / 1.4 - 5 / 1.7;
     const r = solveAdditions({
-      source: { Ca: 0, Mg: 0, Na: 0, SO4: 0, Cl: 0, Alkalinity: 50, pH: 7 },
-      target: { Ca: 0, Mg: 0, Na: 0, SO4: 0, Cl: 0, Alk: 200, RA: 200 },
+      source: { Ca: 50, Mg: 5, Na: 0, SO4: 0, Cl: 0, Alkalinity: 50, pH: 7 },
+      target: { Ca: 50, Mg: 5, Na: 0, SO4: 0, Cl: 0, Alk: 200, RA },
       volumeGallons: 1,
       acidKey: 'lactic_88',
       raiseAlkSource: 'pickling_lime',
@@ -304,7 +317,7 @@ describe('predictFinalProfile', () => {
       raiseAlkSource: 'baking_soda',
     });
     const additionsMap = {};
-    for (const a of sol.additions) additionsMap[a.salt] = a.grams;
+    for (const a of sol.additions) additionsMap[a.salt] = (additionsMap[a.salt] || 0) + a.grams;
     const acidDose = sol.acidDose
       ? sol.acidDose.amount_ml ?? sol.acidDose.amount_g
       : 0;
@@ -412,7 +425,9 @@ describe('solveAdditions — smoke tests', () => {
     expect(Math.abs(r.finalIons.Ca  - TARGET_PILSNER.Ca )).toBeLessThan(10);
     expect(Math.abs(r.finalIons.Mg  - TARGET_PILSNER.Mg )).toBeLessThan(10);
     expect(Math.abs(r.finalIons.Na  - TARGET_PILSNER.Na )).toBeLessThan(10);
-    expect(Math.abs(r.finalIons.SO4 - TARGET_PILSNER.SO4)).toBeLessThan(10);
+    // SO4 tolerance is wider: the Ca ≥50 ppm sanity check may add a small
+    // gypsum dose that bumps SO4 slightly past the style target.
+    expect(Math.abs(r.finalIons.SO4 - TARGET_PILSNER.SO4)).toBeLessThan(15);
     // Cl excluded — MgCl2 substitution can dump extra Cl, and the CaCl2
     // hydrate-form choice introduces ~33% variance vs anhydrous references.
     const finalRA = r.finalIons.Alk - r.finalIons.Ca / 1.4 - r.finalIons.Mg / 1.7;
