@@ -34,8 +34,7 @@
     "pickling_lime": 0.0,
     "magnesium_chloride": 0.0
   },
-  "applied_acid_type": "lactic_88",
-  "applied_acid_ml": 0.5,
+  "applied_acids": { "lactic_88": 0.5 },
   "brun_predicted_final_ions": {
     "Ca": 119,
     "Mg": 15,
@@ -69,8 +68,7 @@
     "pickling_lime": 0.0,
     "magnesium_chloride": 0.0
   },
-  "applied_acid_type": "lactic_88",
-  "applied_acid_ml": 0.0,
+  "applied_acids": {},
   "brun_predicted_final_ions": {
     "Ca": 39,
     "Mg": 10,
@@ -104,8 +102,7 @@
     "pickling_lime": 0.0,
     "magnesium_chloride": 1.0
   },
-  "applied_acid_type": "lactic_88",
-  "applied_acid_ml": 0.0,
+  "applied_acids": {},
   "brun_predicted_final_ions": {
     "Ca": 20,
     "Mg": 9,
