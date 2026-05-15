@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { solveAdditions, predictFinalProfile } from '../../src/chemistry/solver.js';
+import { acidCapacity, applyAcids } from '../../src/chemistry/acids.js';
 
 // Soft, low-mineral source (RO-ish) that needs additions to hit most targets.
 const SOFT_SOURCE = {
@@ -25,13 +26,13 @@ describe('solveAdditions — return shape', () => {
       source: SOFT_SOURCE,
       target: TARGET_PALE_ALE,
       volumeGallons: 5,
-      acidKey: 'lactic_88',
       raiseAlkSource: 'baking_soda',
     });
     expect(r).toHaveProperty('additions');
-    expect(r).toHaveProperty('acidDose');
+    expect(r).toHaveProperty('acids');
     expect(r).toHaveProperty('finalIons');
     expect(Array.isArray(r.additions)).toBe(true);
+    expect(typeof r.acids).toBe('object');
   });
 
   it('each addition has salt, name, grams, and reason', () => {
@@ -39,7 +40,6 @@ describe('solveAdditions — return shape', () => {
       source: SOFT_SOURCE,
       target: TARGET_PALE_ALE,
       volumeGallons: 5,
-      acidKey: 'lactic_88',
       raiseAlkSource: 'baking_soda',
     });
     for (const a of r.additions) {
@@ -60,12 +60,11 @@ describe('solveAdditions — alkalinity branch', () => {
       source: HARD_SOURCE,
       target: TARGET_PILSNER,
       volumeGallons: 5,
-      acidKey: 'lactic_88',
       raiseAlkSource: 'baking_soda',
     });
-    expect(r.acidDose).not.toBeNull();
-    expect(r.acidDose.amount_ml).toBeGreaterThan(0);
-    expect(r.acidDose.ppm_neutralized).toBeCloseTo(185.8, 0);
+    expect(r.acids.lactic_88).toBeGreaterThan(0);
+    const ppmNeutralized = applyAcids(r.acids, 5).ppm_alk_reduced;
+    expect(ppmNeutralized).toBeCloseTo(185.8, 0);
   });
 
   it('soft source needing higher alk → no acid, baking soda used', () => {
@@ -73,10 +72,9 @@ describe('solveAdditions — alkalinity branch', () => {
       source: SOFT_SOURCE,
       target: { ...TARGET_PALE_ALE, Alk: 150 }, // raise Alk required
       volumeGallons: 5,
-      acidKey: 'lactic_88',
       raiseAlkSource: 'baking_soda',
     });
-    expect(r.acidDose).toBeNull();
+    expect(Object.keys(r.acids)).toHaveLength(0);
     expect(r.additions.find((a) => a.salt === 'baking_soda')).toBeDefined();
   });
 
@@ -85,7 +83,6 @@ describe('solveAdditions — alkalinity branch', () => {
       source: SOFT_SOURCE,
       target: { ...TARGET_PALE_ALE, Alk: 150 },
       volumeGallons: 5,
-      acidKey: 'lactic_88',
       raiseAlkSource: 'pickling_lime',
     });
     expect(r.additions.find((a) => a.salt === 'pickling_lime')).toBeDefined();
@@ -99,7 +96,6 @@ describe('solveAdditions — ion targeting accuracy', () => {
       source: SOFT_SOURCE,
       target: TARGET_PALE_ALE,
       volumeGallons: 5,
-      acidKey: 'lactic_88',
       raiseAlkSource: 'baking_soda',
     });
     expect(Math.abs(r.finalIons.SO4 - TARGET_PALE_ALE.SO4)).toBeLessThan(10);
@@ -113,7 +109,6 @@ describe('solveAdditions — ion targeting accuracy', () => {
       source: SOFT_SOURCE,
       target: TARGET_PALE_ALE,
       volumeGallons: 5,
-      acidKey: 'lactic_88',
       raiseAlkSource: 'baking_soda',
     });
     expect(r.finalIons.Cl).toBeGreaterThanOrEqual(TARGET_PALE_ALE.Cl);
@@ -124,7 +119,6 @@ describe('solveAdditions — ion targeting accuracy', () => {
       source: SOFT_SOURCE,
       target: TARGET_PALE_ALE,
       volumeGallons: 5,
-      acidKey: 'lactic_88',
       raiseAlkSource: 'baking_soda',
     });
     expect(r.finalIons.Ca).toBeGreaterThanOrEqual(TARGET_PALE_ALE.Ca - 5);
@@ -156,7 +150,6 @@ describe('solveAdditions — fully traced single-step hand-calculations', () => 
       source: { Ca: 0, Mg: 5, Na: 0, SO4: 0, Cl: 0, Alkalinity: 50, pH: 7 },
       target: { Ca: 72, Mg: 5, Na: 0, SO4: 0, Cl: 100, Alk: 50, RA: 10 },
       volumeGallons: 1,
-      acidKey: 'lactic_88',
       raiseAlkSource: 'baking_soda',
     });
     // Two CaCl2 additions (two-pass strategy) — verify total grams, not count
@@ -165,7 +158,7 @@ describe('solveAdditions — fully traced single-step hand-calculations', () => 
       .reduce((sum, a) => sum + a.grams, 0);
     expect(cacl2Grams).toBeCloseTo(100 / 127.4, 3);
     expect(r.additions.every((a) => a.salt === 'calcium_chloride')).toBe(true);
-    expect(r.acidDose).toBeNull();
+    expect(Object.keys(r.acids)).toHaveLength(0);
     expect(r.finalIons.Cl).toBeCloseTo(100.0, 1);
     expect(r.finalIons.Ca).toBeCloseTo(72.0 * (100 / 127.4), 1);
   });
@@ -188,7 +181,6 @@ describe('solveAdditions — fully traced single-step hand-calculations', () => 
       source: { Ca: 0, Mg: 5, Na: 0, SO4: 0, Cl: 0, Alkalinity: 25, pH: 7 },
       target: { Ca: 61.5, Mg: 5, Na: 0, SO4: 147.4, Cl: 0, Alk: 25, RA: -19 },
       volumeGallons: 1,
-      acidKey: 'lactic_88',
       raiseAlkSource: 'baking_soda',
     });
     expect(r.additions).toHaveLength(1);
@@ -214,13 +206,13 @@ describe('solveAdditions — fully traced single-step hand-calculations', () => 
       source: { Ca: 50, Mg: 5, Na: 0, SO4: 0, Cl: 0, Alkalinity: 200, pH: 7.5 },
       target: { Ca: 50, Mg: 5, Na: 0, SO4: 0, Cl: 0, Alk: 50, RA },
       volumeGallons: 5,
-      acidKey: 'lactic_88',
       raiseAlkSource: 'baking_soda',
     });
-    expect(r.acidDose).not.toBeNull();
-    expect(r.acidDose.ppm_neutralized).toBeCloseTo(150, 0);
-    expect(r.acidDose.mEq).toBeCloseTo((150 / 50.04) * (5 * 3.78541), 1);
-    expect(r.acidDose.amount_ml).toBeCloseTo(4.804, 1);
+    expect(r.acids.lactic_88).toBeDefined();
+    const { total_meq, ppm_alk_reduced } = applyAcids(r.acids, 5);
+    expect(ppm_alk_reduced).toBeCloseTo(150, 0);
+    expect(total_meq).toBeCloseTo((150 / 50.04) * (5 * 3.78541), 1);
+    expect(r.acids.lactic_88).toBeCloseTo(4.804, 1);
   });
 
   it('alkalinity-shortage source with baking_soda raise → hand-traced grams', () => {
@@ -238,7 +230,6 @@ describe('solveAdditions — fully traced single-step hand-calculations', () => 
       source: { Ca: 50, Mg: 5, Na: 0, SO4: 0, Cl: 0, Alkalinity: 50, pH: 7 },
       target: { Ca: 50, Mg: 5, Na: 100, SO4: 0, Cl: 0, Alk: 200, RA },
       volumeGallons: 1,
-      acidKey: 'lactic_88',
       raiseAlkSource: 'baking_soda',
     });
     const baking = r.additions.find((a) => a.salt === 'baking_soda');
@@ -262,7 +253,6 @@ describe('solveAdditions — fully traced single-step hand-calculations', () => 
       source: { Ca: 50, Mg: 5, Na: 0, SO4: 0, Cl: 0, Alkalinity: 50, pH: 7 },
       target: { Ca: 50, Mg: 5, Na: 0, SO4: 0, Cl: 0, Alk: 200, RA },
       volumeGallons: 1,
-      acidKey: 'lactic_88',
       raiseAlkSource: 'pickling_lime',
     });
     const lime = r.additions.find((a) => a.salt === 'pickling_lime');
@@ -277,8 +267,7 @@ describe('predictFinalProfile', () => {
     const r = predictFinalProfile({
       source: SOFT_SOURCE,
       additions: {},
-      acidDose: 0,
-      acidKey: 'lactic_88',
+      acids: {},
       volumeGallons: 5,
     });
     expect(r.Ca).toBe(SOFT_SOURCE.Ca);
@@ -289,8 +278,7 @@ describe('predictFinalProfile', () => {
     const r = predictFinalProfile({
       source: SOFT_SOURCE,
       additions: { gypsum: 5 }, // 5 g into 5 gal = 1 g/gal
-      acidDose: 0,
-      acidKey: 'lactic_88',
+      acids: {},
       volumeGallons: 5,
     });
     expect(r.Ca).toBeCloseTo(SOFT_SOURCE.Ca + 61.5, 1);
@@ -301,11 +289,28 @@ describe('predictFinalProfile', () => {
     const r = predictFinalProfile({
       source: HARD_SOURCE,
       additions: {},
-      acidDose: 5, // 5 mL lactic 88%
-      acidKey: 'lactic_88',
+      acids: { lactic_88: 5 }, // 5 mL lactic 88%
       volumeGallons: 5,
     });
     expect(r.Alk).toBeLessThan(HARD_SOURCE.Alkalinity);
+  });
+
+  it('multi-acid mix lowers Alk linearly across both acids', () => {
+    const single = predictFinalProfile({
+      source: HARD_SOURCE,
+      additions: {},
+      acids: { lactic_88: 2 },
+      volumeGallons: 5,
+    });
+    const mix = predictFinalProfile({
+      source: HARD_SOURCE,
+      additions: {},
+      acids: { lactic_88: 2, phosphoric_85: 1 },
+      volumeGallons: 5,
+    });
+    // Adding phosphoric_85 on top must reduce Alk further by exactly its mEq.
+    const extraPpm = applyAcids({ phosphoric_85: 1 }, 5).ppm_alk_reduced;
+    expect(mix.Alk).toBeCloseTo(single.Alk - extraPpm, 6);
   });
 
   it('matches solveAdditions.finalIons when fed the same recommendations', () => {
@@ -313,20 +318,15 @@ describe('predictFinalProfile', () => {
       source: SOFT_SOURCE,
       target: TARGET_PALE_ALE,
       volumeGallons: 5,
-      acidKey: 'lactic_88',
       raiseAlkSource: 'baking_soda',
     });
     const additionsMap = {};
     for (const a of sol.additions) additionsMap[a.salt] = (additionsMap[a.salt] || 0) + a.grams;
-    const acidDose = sol.acidDose
-      ? sol.acidDose.amount_ml ?? sol.acidDose.amount_g
-      : 0;
 
     const predicted = predictFinalProfile({
       source: SOFT_SOURCE,
       additions: additionsMap,
-      acidDose,
-      acidKey: 'lactic_88',
+      acids: sol.acids,
       volumeGallons: 5,
     });
     for (const ion of ['Ca', 'Mg', 'Na', 'SO4', 'Cl']) {
@@ -352,13 +352,12 @@ describe('solveAdditions — smoke tests', () => {
       source: { ...ions, Alkalinity: ions.Alk, pH: 7 },
       target: { ...ions, RA },
       volumeGallons: 5,
-      acidKey: 'lactic_88',
       raiseAlkSource: 'baking_soda',
     });
 
     const totalGrams = r.additions.reduce((sum, a) => sum + a.grams, 0);
     expect(totalGrams).toBeLessThan(0.5);
-    expect(r.acidDose).toBeNull();
+    expect(Object.keys(r.acids)).toHaveLength(0);
   });
 
   it('direction: target Ca > source Ca → solver adds at least one Ca-bearing salt', () => {
@@ -366,7 +365,6 @@ describe('solveAdditions — smoke tests', () => {
       source: { Ca: 0, Mg: 0, Na: 0, SO4: 0, Cl: 0, Alkalinity: 50, pH: 7 },
       target: { Ca: 100, Mg: 0, Na: 50, SO4: 100, Cl: 50, Alk: 50, RA: -10 },
       volumeGallons: 5,
-      acidKey: 'lactic_88',
       raiseAlkSource: 'baking_soda',
     });
     const caBearing = ['gypsum', 'calcium_chloride', 'pickling_lime', 'chalk'];
@@ -378,6 +376,9 @@ describe('solveAdditions — smoke tests', () => {
 
   it('bounds: solver never recommends negative grams or negative acid dose', () => {
     // Sweep across multiple source/target combinations to stress the math.
+    // The inner acid loop is gone — solver hardcodes its recommended acid in
+    // v1.1 (see SOLVER_ACID_KEY); multi-acid combinations are exercised in
+    // tests/chemistry/acids.test.js.
     const sources = [
       { Ca: 0,   Mg: 0,  Na: 0,  SO4: 0,  Cl: 0,  Alkalinity: 0,   pH: 7 },   // RO
       { Ca: 30,  Mg: 5,  Na: 15, SO4: 25, Cl: 20, Alkalinity: 80,  pH: 7 },   // typical municipal
@@ -388,22 +389,17 @@ describe('solveAdditions — smoke tests', () => {
       TARGET_PALE_ALE,
       { Ca: 110, Mg: 18, Na: 50, SO4: 60,  Cl: 80, Alk: 200, RA: 240 },        // stout-ish
     ];
-    const acids = ['lactic_88', 'phosphoric_85', 'acidulated_malt'];
 
     for (const source of sources) {
       for (const target of targets) {
-        for (const acidKey of acids) {
-          for (const raiseAlkSource of ['baking_soda', 'pickling_lime']) {
-            const r = solveAdditions({ source, target, volumeGallons: 5, acidKey, raiseAlkSource });
-            for (const a of r.additions) {
-              expect(a.grams).toBeGreaterThanOrEqual(0);
-            }
-            if (r.acidDose) {
-              const dose = r.acidDose.amount_ml ?? r.acidDose.amount_g ?? 0;
-              expect(dose).toBeGreaterThanOrEqual(0);
-              expect(r.acidDose.mEq).toBeGreaterThanOrEqual(0);
-              expect(r.acidDose.ppm_neutralized).toBeGreaterThanOrEqual(0);
-            }
+        for (const raiseAlkSource of ['baking_soda', 'pickling_lime']) {
+          const r = solveAdditions({ source, target, volumeGallons: 5, raiseAlkSource });
+          for (const a of r.additions) {
+            expect(a.grams).toBeGreaterThanOrEqual(0);
+          }
+          for (const [key, amount] of Object.entries(r.acids)) {
+            expect(amount).toBeGreaterThanOrEqual(0);
+            expect(amount * acidCapacity(key)).toBeGreaterThanOrEqual(0);
           }
         }
       }
@@ -419,7 +415,6 @@ describe('solveAdditions — smoke tests', () => {
       source: { Ca: 0, Mg: 0, Na: 0, SO4: 0, Cl: 0, Alkalinity: 0, pH: 7 }, // RO
       target: TARGET_PILSNER,
       volumeGallons: 5,
-      acidKey: 'lactic_88',
       raiseAlkSource: 'baking_soda',
     });
     expect(Math.abs(r.finalIons.Ca  - TARGET_PILSNER.Ca )).toBeLessThan(10);
@@ -439,7 +434,6 @@ describe('solveAdditions — smoke tests', () => {
       source: SOFT_SOURCE,
       target: TARGET_PALE_ALE,
       volumeGallons: 5,
-      acidKey: 'lactic_88',
       raiseAlkSource: 'baking_soda',
     });
     const totalSalts = r.additions.reduce((sum, a) => sum + a.grams, 0);

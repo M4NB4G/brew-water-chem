@@ -77,8 +77,7 @@ describe("reference-batch parity vs Bru'n Water 1.25", () => {
       const result = predictFinalProfile({
         source: batch.source,
         additions: batch.applied_additions_g,
-        acidDose: batch.applied_acid_ml ?? 0,
-        acidKey: batch.applied_acid_type,
+        acids: batch.applied_acids ?? {},
         volumeGallons: batch.volume_gallons,
       });
       const ref = batch.brun_predicted_final_ions;
