@@ -156,17 +156,30 @@ export default function App() {
       <footer
         style={{
           padding: '1.5rem 1.25rem',
-          fontSize: '0.72rem',
-          color: '#9faec0',
-          lineHeight: 1.6,
           maxWidth: '900px',
           margin: '0 auto',
         }}
       >
-        Brew Water Chem v1 · Persyn Chemical Engineering and Consulting, PLLC
-        <br />
-        Calculations cite primary sources (Palmer-Kaminski 2013, Kolbach 1953,
-        Troester 2009). Validate against a reference batch before production use.
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1.25rem' }}>
+          <img
+            src="/persyn-logo.jpg"
+            alt="Persyn Chemical Engineering and Consulting, PLLC"
+            style={{ maxWidth: '120px', width: '100%', objectFit: 'contain', flexShrink: 0 }}
+          />
+          <p
+            style={{
+              margin: 0,
+              fontSize: '0.72rem',
+              color: '#9faec0',
+              lineHeight: 1.6,
+            }}
+          >
+            Brew Water Chem v1.2 · Persyn Chemical Engineering and Consulting, PLLC
+            <br />
+            Calculations cite primary sources (Palmer-Kaminski 2013, Kolbach 1953,
+            Troester 2009). Validate against a reference batch before production use.
+          </p>
+        </div>
       </footer>
     </div>
   );

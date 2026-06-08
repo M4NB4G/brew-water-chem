@@ -1,4 +1,4 @@
-// "Notes" tab — v1 scope, references, and validation status.
+// "Notes" tab — v1.2.2 scope, references, and validation status.
 
 import Card from '../shared/Card.jsx';
 import { colors, tokens } from '../shared/styles.js';
@@ -7,20 +7,20 @@ export default function NotesTab() {
   return (
     <>
       <Card>
-        <div style={tokens.cardLabel}>v1 Scope & Limitations</div>
+        <div style={tokens.cardLabel}>v1.2 Scope & Limitations</div>
         <div style={{ fontSize: '0.92rem', lineHeight: 1.6, color: colors.textPrimary }}>
           <p style={{ marginTop: 0 }}>
-            This v1 calculates <strong>salt additions</strong> and{' '}
+            This v1.2 calculates <strong>salt additions</strong> and{' '}
             <strong>acid dose</strong> to move source water toward a target ion
             profile.
           </p>
           <p>
-            <strong>v1 does not predict mash pH.</strong> Mash pH prediction
+            <strong>v1.2 does not predict mash pH.</strong> Mash pH prediction
             requires the grain bill (base malt color, crystal %, roast %) to
             estimate buffering. That comes in v2 with the Kaiser/Troester model.
           </p>
           <p>
-            What v1 <em>does</em> do:
+            What v1.2 <em>does</em> do:
           </p>
           <ul style={{ marginLeft: '1.2rem', lineHeight: 1.7 }}>
             <li>Compute residual alkalinity per Kolbach (1953)</li>
