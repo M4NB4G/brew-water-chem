@@ -17,9 +17,11 @@
 //     value differs from the solver's recommendation (incl. primary dropdown).
 
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Card from '../shared/Card.jsx';
 import StatBox from '../shared/StatBox.jsx';
 import InputRow from '../shared/InputRow.jsx';
+import BatchSheet from './BatchSheet.jsx';
 import { colors, radii, tokens } from '../shared/styles.js';
 import { ACIDS, acidCapacity, acidContribution, applyAcids } from '../../chemistry/acids.js';
 import { SALT_CONTRIBUTIONS_PER_G_GAL } from '../../chemistry/salts.js';
@@ -422,6 +424,22 @@ export default function RecipeTab({
             );
           })()}
 
+          {finalIons && createPortal(
+            <BatchSheet
+              source={source}
+              target={target}
+              style={style}
+              volume={volume}
+              unitMode={unitMode}
+              effectiveSalts={effectiveSalts}
+              userAcids={userAcids}
+              primaryAcidType={primaryAcidType}
+              finalIons={finalIons}
+              volumeGallons={volumeGallons}
+            />,
+            document.body
+          )}
+
           {finalIons && (() => {
             const finalRA = residualAlkalinity(finalIons.Alk, finalIons.Ca, finalIons.Mg);
             const sign = (n) => (n > 0 ? '+' : '');
@@ -498,6 +516,14 @@ export default function RecipeTab({
               </Card>
             );
           })()}
+
+          {finalIons && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.25rem' }}>
+              <button onClick={() => window.print()} style={printButtonStyle}>
+                Print Batch Sheet
+              </button>
+            </div>
+          )}
         </>
       )}
     </>
@@ -686,6 +712,19 @@ const resetButtonStyle = {
   padding: '0.4rem 0.7rem',
   borderRadius: radii.btn,
   fontSize: '0.75rem',
+  fontWeight: 600,
+  letterSpacing: '0.04em',
+  cursor: 'pointer',
+  fontFamily: 'inherit',
+};
+
+const printButtonStyle = {
+  background: '#1f3147',
+  color: '#ffffff',
+  border: 'none',
+  padding: '0.5rem 1.1rem',
+  borderRadius: radii.btn,
+  fontSize: '0.82rem',
   fontWeight: 600,
   letterSpacing: '0.04em',
   cursor: 'pointer',

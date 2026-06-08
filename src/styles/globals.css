@@ -37,3 +37,38 @@ button {
 button {
   cursor: pointer;
 }
+
+/* ── Print layout ───────────────────────────────────────────────── */
+
+/* Hide the batch sheet from the screen UI */
+@media screen {
+  .print-sheet {
+    display: none;
+  }
+}
+
+@media print {
+  @page {
+    margin: 0.5in;
+    size: Letter portrait;
+  }
+
+  /* Hide the entire React app root — the batch sheet is portaled
+     directly into <body> as a sibling of #root, so this doesn't
+     affect it. No blank pages, no visibility tricks. */
+  #root {
+    display: none !important;
+  }
+
+  /* The portaled batch sheet renders as a direct child of <body>. */
+  .print-sheet {
+    display: block !important;
+    background: white;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    color: black;
+  }
+
+  body {
+    background: white !important;
+  }
+}
