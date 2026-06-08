@@ -165,10 +165,14 @@ export default function NotesTab() {
             explainable deviations in chloride and alkalinity respectively.
           </p>
           <p style={{ marginBottom: 0 }}>
-            <strong>As with any water chemistry model,</strong> verify results against
-            direct analytical testing and pH measurement before production brewing.
-            Persyn Chemical Engineering and Consulting, PLLC assumes no liability for
-            brewing outcomes.
+            <strong>Disclaimer.</strong> Brew Water Chem is a free informational tool
+            provided as-is, without warranty of any kind. Its calculations are estimates
+            for educational and process-planning purposes and are not a substitute for
+            direct analytical testing and pH measurement. Use of this tool does not
+            create a professional engineering or consulting relationship. Verify all
+            results against your own measurements before applying them to production
+            brewing. The author assumes no liability for brewing outcomes or decisions
+            made using this tool.
           </p>
         </div>
       </Card>
@@ -231,7 +235,7 @@ export default function NotesTab() {
           </ul>
           <p>
             <strong>
-              Persyn Chemical Engineering and Consulting, PLLC, and the
+              Persyn Chemical Engineering and Consulting, and the
               contributors to this tool accept no liability for any direct,
               indirect, incidental, or consequential loss or damage arising
               from reliance on outputs produced by Brew Water Chem,

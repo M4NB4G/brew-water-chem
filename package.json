@@ -1,7 +1,7 @@
 {
   "name": "brew-water-chem",
   "version": "0.1.0",
-  "description": "Brewing water chemistry calculator — Persyn Chemical Engineering and Consulting, PLLC",
+  "description": "Brewing water chemistry calculator — Persyn Chemical Engineering and Consulting",
   "license": "MIT",
   "private": true,
   "type": "module",

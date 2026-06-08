@@ -265,7 +265,7 @@ export default function App() {
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1.25rem' }}>
           <img
             src="/persyn-logo.jpg"
-            alt="Persyn Chemical Engineering and Consulting, PLLC"
+            alt="Persyn Chemical Engineering and Consulting"
             style={{ maxWidth: '120px', width: '100%', objectFit: 'contain', flexShrink: 0 }}
           />
           <p
@@ -276,7 +276,7 @@ export default function App() {
               lineHeight: 1.6,
             }}
           >
-            Brew Water Chem v1.2 · Persyn Chemical Engineering and Consulting, PLLC
+            Brew Water Chem v1.2 · Persyn Chemical Engineering and Consulting
             <br />
             Calculations cite primary sources (Palmer-Kaminski 2013, Kolbach 1953,
             Troester 2009). Validate against a reference batch before production use.

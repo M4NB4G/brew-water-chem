@@ -1,7 +1,7 @@
 # Brew Water Chem
 
 A free, public brewing water chemistry calculator built for the brewing industry by
-**Persyn Chemical Engineering and Consulting, PLLC** — a P.E.-licensed chemical
+**Persyn Chemical Engineering and Consulting** — a P.E.-licensed chemical
 engineering consultancy.
 
 The app calculates salt and acid additions required to convert a measured source water
@@ -172,4 +172,4 @@ All state lives in `App.jsx` React state for v1. No `localStorage` or
 
 ## License
 
-MIT © Persyn Chemical Engineering and Consulting, PLLC
+MIT © Persyn Chemical Engineering and Consulting
