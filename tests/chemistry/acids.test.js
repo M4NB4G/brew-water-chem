@@ -10,13 +10,20 @@
 //         (dose × capacity) / (gallons × 3.78541) × 50.04
 //
 // Constants are NOT modified — densities are CRC Handbook 97th ed., MW
-// values are IUPAC. Acidulated malt: 3% lactic w/w (Weyermann spec sheet).
+// values are IUPAC. Acidulated malt: 2% lactic w/w (Weyermann spec sheet,
+// midpoint of the published 1–2% range).
 //
 // Reference per Troester (2009) Braukaiser.com — phosphoric acid is treated
 // as monoprotic at mash pH 5.4 (only pKa1 = 2.15 dissociates fully).
 
 import { describe, it, expect } from 'vitest';
-import { acidAlkalinityReduction, acidCapacity, ACIDS } from '../../src/chemistry/acids.js';
+import {
+  acidAlkalinityReduction,
+  acidCapacity,
+  acidContribution,
+  applyAcids,
+  ACIDS,
+} from '../../src/chemistry/acids.js';
 
 describe('acidCapacity', () => {
   it('lactic 88%: ≈ 11.81 mEq/mL', () => {
@@ -152,5 +159,77 @@ describe('first-principles hand-calculations', () => {
     const mlForOneMeq = 1 / cap;            // mL of acid that delivers 1 mEq
     const gallonsForOneL = 1 / 3.78541;     // gallons in 1 L
     expect(acidAlkalinityReduction('lactic_88', mlForOneMeq, gallonsForOneL)).toBeCloseTo(50.04, 2);
+  });
+});
+
+describe('acidContribution', () => {
+  it('amount × capacity for liquid acid', () => {
+    expect(acidContribution('lactic_88', 1)).toBeCloseTo(acidCapacity('lactic_88'), 9);
+    expect(acidContribution('phosphoric_85', 2.5))
+      .toBeCloseTo(2.5 * acidCapacity('phosphoric_85'), 9);
+  });
+
+  it('amount × capacity for acidulated malt (mEq/g)', () => {
+    expect(acidContribution('acidulated_malt', 100))
+      .toBeCloseTo(100 * acidCapacity('acidulated_malt'), 9);
+  });
+
+  it('zero or missing amount returns 0', () => {
+    expect(acidContribution('lactic_88', 0)).toBe(0);
+    expect(acidContribution('lactic_88', undefined)).toBe(0);
+    expect(acidContribution('lactic_88', null)).toBe(0);
+  });
+});
+
+describe('applyAcids — multi-acid linearity', () => {
+  it('mEq combines linearly with no cross-terms', () => {
+    // applyAcids({lactic_88: 1, phosphoric_85: 1}, 5) must equal the sum of
+    // the two single-acid reductions evaluated separately.
+    const a = acidAlkalinityReduction('lactic_88', 1, 5);
+    const b = acidAlkalinityReduction('phosphoric_85', 1, 5);
+    const mix = applyAcids({ lactic_88: 1, phosphoric_85: 1 }, 5);
+    expect(mix.ppm_alk_reduced).toBeCloseTo(a + b, 6);
+
+    const expectedMeq = 1 * acidCapacity('lactic_88')
+                      + 1 * acidCapacity('phosphoric_85');
+    expect(mix.total_meq).toBeCloseTo(expectedMeq, 6);
+  });
+
+  it('three-acid mix sums all contributions (lactic + phos85 + acid malt)', () => {
+    const liquid1 = acidAlkalinityReduction('lactic_88', 0.5, 10);
+    const liquid2 = acidAlkalinityReduction('phosphoric_85', 0.3, 10);
+    const solid   = acidAlkalinityReduction('acidulated_malt', 50, 10);
+    const mix = applyAcids(
+      { lactic_88: 0.5, phosphoric_85: 0.3, acidulated_malt: 50 },
+      10
+    );
+    expect(mix.ppm_alk_reduced).toBeCloseTo(liquid1 + liquid2 + solid, 6);
+  });
+
+  it('empty mix returns zero', () => {
+    expect(applyAcids({}, 5).total_meq).toBe(0);
+    expect(applyAcids({}, 5).ppm_alk_reduced).toBe(0);
+  });
+
+  it('zero / missing entries treated as 0', () => {
+    const r = applyAcids({ lactic_88: 0, phosphoric_85: 1 }, 5);
+    expect(r.total_meq).toBeCloseTo(acidCapacity('phosphoric_85'), 6);
+    expect(r.ppm_alk_reduced).toBeCloseTo(
+      acidAlkalinityReduction('phosphoric_85', 1, 5), 6
+    );
+  });
+
+  it('single-acid mix equals legacy single-acid function', () => {
+    const legacy = acidAlkalinityReduction('lactic_88', 2, 10);
+    const multi  = applyAcids({ lactic_88: 2 }, 10).ppm_alk_reduced;
+    expect(multi).toBeCloseTo(legacy, 9);
+  });
+
+  it('throws for non-positive gallons', () => {
+    expect(() => applyAcids({ lactic_88: 1 }, 0)).toThrow('gallons must be > 0');
+  });
+
+  it('throws for an unknown acid key in the mix', () => {
+    expect(() => applyAcids({ sulfuric: 1 }, 5)).toThrow('Unknown acid');
   });
 });

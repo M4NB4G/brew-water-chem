@@ -22,8 +22,13 @@
 //   Kolbach (1953) — RA formulation used to validate the result
 
 import { SALT_CONTRIBUTIONS_PER_G_GAL, HCO3_TO_CACO3 } from './salts.js';
-import { ACIDS, acidCapacity, acidAlkalinityReduction } from './acids.js';
+import { acidCapacity, applyAcids } from './acids.js';
 import { LITERS_PER_GALLON } from './units.js';
+
+// TODO(v1.2): make the recommended acid configurable from a settings page.
+// For v1.1 the solver always recommends 88% lactic. Multi-acid blends are a
+// manual override on the Recipe tab — the solver itself stays single-acid.
+const SOLVER_ACID_KEY = 'lactic_88';
 
 /**
  * Solve for salt and acid additions.
@@ -32,18 +37,18 @@ import { LITERS_PER_GALLON } from './units.js';
  * @param {object} params.source         {Ca, Mg, Na, SO4, Cl, Alkalinity, pH} mg/L
  * @param {object} params.target         {Ca, Mg, Na, SO4, Cl, Alk, RA} mg/L
  * @param {number} params.volumeGallons  batch volume in US gallons
- * @param {string} params.acidKey        key into ACIDS
  * @param {string} params.raiseAlkSource 'baking_soda' | 'pickling_lime'
  * @param {Set<string>} [params.enabledSalts]  salt keys the solver may use;
  *                                              defaults to all salts enabled
  *
  * @returns {{
  *   additions: Array<{ salt, name, grams, adds, reason }>,
- *   acidDose: { name, amount_ml?, amount_g?, mEq, ppm_neutralized } | null,
+ *   acids: { [acidKey]: amount },   // mL for liquid acids, g for acidulated malt; {} when no acid needed
  *   finalIons: { Ca, Mg, Na, SO4, Cl, Alk }
  * }}
  */
-export function solveAdditions({ source, target, volumeGallons, acidKey, raiseAlkSource, enabledSalts }) {
+export function solveAdditions({ source, target, volumeGallons, raiseAlkSource, enabledSalts }) {
+  const acidKey = SOLVER_ACID_KEY;
   const canUse = (key) => !enabledSalts || enabledSalts.has(key);
   // Na safety cap: baking soda adds Na as a side-effect of raising alkalinity.
   // Cap total Na at the lower of 100 ppm or 3× the style target.
@@ -258,19 +263,14 @@ export function solveAdditions({ source, target, volumeGallons, acidKey, raiseAl
   // RA = Alk - Ca/1.4 - Mg/1.7  →  needed Alk = RA + Ca/1.4 + Mg/1.7
   const alkForTargetRA = target.RA + current.Ca / 1.4 + current.Mg / 1.7;
   const alkDelta = alkForTargetRA - current.Alk;
-  let acidDose = null;
+  const acids = {};
 
   if (alkDelta < -5) {
     const ppmToReduce = -alkDelta;
     const liters = volumeGallons * LITERS_PER_GALLON;
     const totalMeq = (ppmToReduce / 50.04) * liters;
     const cap = acidCapacity(acidKey);
-    const a = ACIDS[acidKey];
-    if (a.is_solid) {
-      acidDose = { type: acidKey, name: a.name, amount_g: totalMeq / cap, mEq: totalMeq, ppm_neutralized: ppmToReduce };
-    } else {
-      acidDose = { type: acidKey, name: a.name, amount_ml: totalMeq / cap, mEq: totalMeq, ppm_neutralized: ppmToReduce };
-    }
+    acids[acidKey] = totalMeq / cap;
     current.Alk = alkForTargetRA;
 
   } else if (alkDelta > 5 && canUse(raiseAlkSource)) {
@@ -339,24 +339,23 @@ export function solveAdditions({ source, target, volumeGallons, acidKey, raiseAl
     }
   }
 
-  return { additions, acidDose, finalIons: current };
+  return { additions, acids, finalIons: current };
 }
 
 /**
- * Recompute the final ion profile from a set of additions and acid dose.
+ * Recompute the final ion profile from a set of additions and an acid mix.
  * Used to update the Predicted Final Profile when the user overrides any
  * recommended salt amount or acid dose on the Recipe tab.
  *
  * @param {object} params
  * @param {object} params.source        {Ca, Mg, Na, SO4, Cl, Alkalinity}
  * @param {object} params.additions     { [saltKey]: grams }
- * @param {number} params.acidDose      mL (liquid) or g (acid malt); 0 = none
- * @param {string} params.acidKey
+ * @param {object} params.acids         { [acidKey]: amount }  mL (liquid) or g (solid); empty = none
  * @param {number} params.volumeGallons
  *
  * @returns {{ Ca, Mg, Na, SO4, Cl, Alk }}
  */
-export function predictFinalProfile({ source, additions, acidDose, acidKey, volumeGallons }) {
+export function predictFinalProfile({ source, additions, acids, volumeGallons }) {
   const result = {
     Ca: source.Ca || 0,
     Mg: source.Mg || 0,
@@ -380,8 +379,8 @@ export function predictFinalProfile({ source, additions, acidDose, acidKey, volu
     if (salt.alk_as_CaCO3) result.Alk += salt.alk_as_CaCO3 * factor;
   }
 
-  if (acidDose && acidDose > 0 && acidKey) {
-    result.Alk -= acidAlkalinityReduction(acidKey, acidDose, volumeGallons);
+  if (acids && volumeGallons > 0) {
+    result.Alk -= applyAcids(acids, volumeGallons).ppm_alk_reduced;
   }
 
   return result;

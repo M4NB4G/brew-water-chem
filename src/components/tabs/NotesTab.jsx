@@ -1,4 +1,4 @@
-// "Notes" tab — v1.2.2 scope, references, and validation status.
+// "Notes" tab — v1.2 scope, references, and validation status.
 
 import Card from '../shared/Card.jsx';
 import { colors, tokens } from '../shared/styles.js';
@@ -10,7 +10,7 @@ export default function NotesTab() {
         <div style={tokens.cardLabel}>v1.2 Scope & Limitations</div>
         <div style={{ fontSize: '0.92rem', lineHeight: 1.6, color: colors.textPrimary }}>
           <p style={{ marginTop: 0 }}>
-            This v1.2 calculates <strong>salt additions</strong> and{' '}
+            This calculator computes <strong>salt additions</strong> and{' '}
             <strong>acid dose</strong> to move source water toward a target ion
             profile.
           </p>
@@ -25,10 +25,29 @@ export default function NotesTab() {
           <ul style={{ marginLeft: '1.2rem', lineHeight: 1.7 }}>
             <li>Compute residual alkalinity per Kolbach (1953)</li>
             <li>Hit target ion concentrations (Ca, Mg, Na, SO₄, Cl, Alk)</li>
-            <li>Recommend acid dose to neutralize excess alkalinity</li>
+            <li>Recommend an acid dose to neutralize excess alkalinity</li>
+            <li>
+              Optionally blend <strong>multiple acids</strong> in one batch
+              (acidulated malt + liquid phosphoric, two liquid acids together,
+              etc.) — opt-in via the "Use multiple acids" checkbox on the Recipe
+              tab. mEq combines linearly across acids with no cross-terms.
+            </li>
             <li>Show SO₄:Cl ratio for flavor balance</li>
             <li>Allow user override of any salt or acid amount with live re-calculation</li>
           </ul>
+          <p>
+            <strong>Multi-acid is a manual override, not a solver capability.</strong>{' '}
+            The solver still recommends a single acid (88% lactic by default);
+            secondary acids are user-entered. A future settings page (v1.3) will
+            let you choose the solver's default acid.
+          </p>
+          <p>
+            New in v1.1: the multi-acid card, the per-row mEq contribution
+            hint, and the "Total acid: X mEq → −Y ppm Alk" summary. The
+            chemistry engine (constants, capacity formulas, alkalinity-reduction
+            math) is unchanged from v1.0 — reference-batch parity vs Bru&apos;n
+            Water 1.25 free is preserved exactly.
+          </p>
         </div>
       </Card>
 
