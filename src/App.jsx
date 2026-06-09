@@ -276,10 +276,9 @@ export default function App() {
               lineHeight: 1.6,
             }}
           >
-            Brew Water Chem v1.2 · Persyn Chemical Engineering and Consulting
+            Persyn Chemical Engineering and Consulting
             <br />
-            Calculations cite primary sources (Palmer-Kaminski 2013, Kolbach 1953,
-            Troester 2009). Validate against a reference batch before production use.
+            See Notes for important information, methodology, and assumptions.
           </p>
         </div>
       </footer>
