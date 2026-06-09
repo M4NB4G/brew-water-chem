@@ -35,6 +35,19 @@ const DEMO_SOURCE = {
   pH: 7.2,
 };
 
+// Realistic reverse-osmosis permeate profile. RO rejects 90-98% of dissolved
+// solids; trace minerals remain. Low alkalinity (5) reflects partial passage
+// through the membrane; pH 6.5 reflects minimal buffering capacity.
+const RO_SOURCE = {
+  Ca: 1,
+  Mg: 1,
+  Na: 1,
+  SO4: 0,
+  Cl: 1,
+  Alkalinity: 5,
+  pH: 6.5,
+};
+
 export default function WaterInTab({ source, onChangeSource }) {
   const hasValues = Object.values(source).some((v) => v !== '' && v !== 0 && !isNaN(parseFloat(v)));
 
@@ -82,13 +95,22 @@ export default function WaterInTab({ source, onChangeSource }) {
           }}
         >
           <span style={tokens.cardLabel}>Source Water Test Results</span>
-          <button
-            onClick={() => onChangeSource({ ...source, ...DEMO_SOURCE })}
-            style={demoButtonStyle}
-            title="Load Bristlecone Brewing 10/22/2025 example values"
-          >
-            Load Example
-          </button>
+          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <button
+              onClick={() => onChangeSource({ ...source, ...DEMO_SOURCE })}
+              style={demoButtonStyle}
+              title="Load Bristlecone Brewing 10/22/2025 example values"
+            >
+              Load Example
+            </button>
+            <button
+              onClick={() => onChangeSource({ ...source, ...RO_SOURCE })}
+              style={demoButtonStyle}
+              title="Load realistic reverse-osmosis water profile"
+            >
+              RO Water
+            </button>
+          </div>
         </div>
         <div>
           {REPORT_ROWS.map(([key, label, unit]) => (
